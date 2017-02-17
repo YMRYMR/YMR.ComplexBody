@@ -1,7 +1,7 @@
 # YMR.ComplexBody
 ComplexBody plugin for Duality (https://github.com/AdamsLair/duality)
 
-YMR.ComplexBody is plugin for Duality, an awesome 2D framework for .Net.
+YMR.ComplexBody is a plugin for Duality, an awesome 2D framework for .Net.
 
 This plugin allows you to create and edit complex RigidBody objects.
 
