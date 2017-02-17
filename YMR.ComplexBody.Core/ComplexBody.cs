@@ -416,9 +416,13 @@ namespace YMR.ComplexBody.Core
 
                 if (mouseLeft)
                 {
+                    Transform trans = this.GameObj.GetComponent<Transform>();
+
                     Vector3 mousePos = device.GetSpaceCoord(new Vector2(mouseX, mouseY));
                     float transformedMouseX = mousePos.X;
                     float transformedMouseY = mousePos.Y;
+                    Transform transInv = new Transform() { Angle = -trans.Angle, Pos = new Vector3(-trans.Pos.X, -trans.Pos.Y, -trans.Pos.Z) };
+                    TransformPoint(transInv, ref transformedMouseX, ref transformedMouseY);
 
                     int t = points.Count;
 
@@ -428,13 +432,19 @@ namespace YMR.ComplexBody.Core
                         {
                             for (int i = 0; i < t; i++)
                             {
-                                float xDistance = Math.Abs(transformedMouseX - points[i].X);
-                                float yDistance = Math.Abs(transformedMouseY - points[i].Y);
+                                // Transformed position i
+                                float transformedX = points[i].X;
+                                float transformedY = points[i].Y;
+                                TransformPoint(trans, ref transformedX, ref transformedY);
 
-                                if (xDistance < 10) transformedMouseX = points[i].X;
-                                else if (yDistance < 10) transformedMouseY = points[i].Y;
+                                float xDistance = Math.Abs(transformedMouseX - transformedX);
+                                float yDistance = Math.Abs(transformedMouseY - transformedY);
+
+                                if (xDistance < 10) transformedMouseX = transformedX;
+                                else if (yDistance < 10) transformedMouseY = transformedY;
                             }
                         }
+
                         points[selectedPointId] = new Vector2(transformedMouseX, transformedMouseY);
                     }
                     else if (!ctrlPressed) // Add point
