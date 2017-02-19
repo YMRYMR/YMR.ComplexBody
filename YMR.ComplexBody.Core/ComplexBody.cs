@@ -118,7 +118,11 @@ namespace YMR.ComplexBody.Core
             }
         }
 
-        private void UpdateShapes()
+        #endregion
+
+        #region Public Methods
+
+        public void UpdateShapes()
         {
             try
             {
@@ -185,10 +189,6 @@ namespace YMR.ComplexBody.Core
             }
             catch { }
         }
-
-        #endregion
-
-        #region Public Methods
 
         public override void Draw(IDrawDevice device)
         {
