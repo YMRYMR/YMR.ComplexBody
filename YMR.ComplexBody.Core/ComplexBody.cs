@@ -49,6 +49,7 @@ namespace YMR.ComplexBody.Core
         private Material material = Material.Checkerboard.Res;
         private float borderWidth = 2;
         private ColorRgba borderColor = new ColorRgba(255, 0, 0, 200);
+        private bool scaleTexture = false;
 
         [DontSerialize]
         private bool ctrlPressed = false;
@@ -82,6 +83,7 @@ namespace YMR.ComplexBody.Core
         public override float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
         public float BorderWidth { get { return borderWidth; } set { borderWidth = value; } }
         public ColorRgba BorderColor { get { return borderColor; } set { borderColor = value; } }
+        public bool ScaleTexture { get { return scaleTexture; } set { scaleTexture = value; } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool CtrlPressed { get { return ctrlPressed; } set { ctrlPressed = value; } }
@@ -235,6 +237,11 @@ namespace YMR.ComplexBody.Core
                     
                     Rect boundingRect = points.BoundingBox();
                     
+                    float brW = scaleTexture ? boundingRect.W : this.material.MainTexture.Res.Size.X;
+                    float brH = scaleTexture ? boundingRect.H : this.material.MainTexture.Res.Size.Y;
+                    float ratioW = brH / brW;
+                    float ratioH = brW / brH;
+
                     foreach (PolyShapeInfo shape in shapes)
                     {
                         int tShapes = shape.Vertices.Count();
@@ -250,7 +257,12 @@ namespace YMR.ComplexBody.Core
                         canvas.State.SetMaterial(this.material);
                         canvas.State.TransformAngle = angle;
                         canvas.State.TransformScale = scale;
-                        canvas.State.TextureCoordinateRect = new Rect((1 / boundingRect.W) * localRect.X, (1 / boundingRect.W) * localRect.Y, (1 / boundingRect.W) * localRect.W, (1 / boundingRect.H) * localRect.H);
+                        canvas.State.TextureCoordinateRect = new Rect(
+                            (1 / brW) * localRect.X, 
+                            (1 / brH) * localRect.Y, 
+                            (1 / brW) * localRect.W, 
+                            (1 / brH) * localRect.H
+                        );
 
                         canvas.FillPolygon(vs, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
 
@@ -319,7 +331,6 @@ namespace YMR.ComplexBody.Core
                     if (i == selectedPointId)
                     {
                         canvas.PushState();
-                        //canvas.State.SetMaterial(Material.SolidWhite);
                         canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
                         if (ctrlPressed) canvas.FillRect(transformedX - 10, transformedY - 10, 20, 20);
                         else canvas.FillCircle(transformedX, transformedY, 10);
@@ -328,12 +339,10 @@ namespace YMR.ComplexBody.Core
                     else
                     {
                         canvas.PushState();
-                        //canvas.State.SetMaterial(Material.SolidWhite);
                         canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
                         canvas.FillCircle(transformedX, transformedY, 11);
                         canvas.PopState();
                         canvas.PushState();
-                        //canvas.State.SetMaterial(Material.SolidBlack);
                         canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
                         canvas.FillCircle(transformedX, transformedY, 10);
                         canvas.PopState();
@@ -347,12 +356,10 @@ namespace YMR.ComplexBody.Core
                     canvas.State.ColorTint = lineColor;
                     if (i < t - 1)
                     {
-                        //canvas.DrawLine(transformedX, transformedY, transformedX1, transformedY1);
                         canvas.FillThickLine(transformedX, transformedY, transformedX1, transformedY1, borderWidth);
                     }
                     else
                     {
-                        //canvas.DrawLine(transformedX, transformedY, transformedX0, transformedY0);
                         canvas.FillThickLine(transformedX, transformedY, transformedX0, transformedY0, borderWidth);
                     }
                     canvas.PopState();
