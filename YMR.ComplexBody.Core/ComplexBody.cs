@@ -231,28 +231,31 @@ namespace YMR.ComplexBody.Core
                 // Texture
                 if (showTexture)
                 {
-                    canvas.PushState();
-                    canvas.State.SetMaterial(this.material);
-                    Rect boundingRect = points.BoundingBox();
-                    canvas.State.TextureCoordinateRect = new Rect(0, 0, boundingRect.W / canvas.State.TextureBaseSize.X, boundingRect.H / canvas.State.TextureBaseSize.Y);
-                    //canvas.State.TextureCoordinateRect = new Rect(0, 0, canvas.State.TextureBaseSize.X, canvas.State.TextureBaseSize.Y);
-                    canvas.State.TextInvariantScale = true;
-                    canvas.State.TransformAngle = angle;
-                    canvas.State.TransformScale = scale;
                     IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
-
+                    
+                    Rect boundingRect = points.BoundingBox();
+                    
                     foreach (PolyShapeInfo shape in shapes)
                     {
                         int tShapes = shape.Vertices.Count();
                         Vector2[] vs = new Vector2[tShapes];
                         for (int i = 0; i < tShapes; i++)
                         {
-                            vs[i] = new Vector2(shape.Vertices[i].X, shape.Vertices[i].Y);
+                            vs[i] = shape.Vertices[i];
                         }
 
+                        Rect localRect = shape.AABB;
+
+                        canvas.PushState();
+                        canvas.State.SetMaterial(this.material);
+                        canvas.State.TransformAngle = angle;
+                        canvas.State.TransformScale = scale;
+                        canvas.State.TextureCoordinateRect = new Rect((1 / boundingRect.W) * localRect.X, (1 / boundingRect.W) * localRect.Y, (1 / boundingRect.W) * localRect.W, (1 / boundingRect.H) * localRect.H);
+
                         canvas.FillPolygon(vs, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+
+                        canvas.PopState();
                     }
-                    canvas.PopState();
                 }
 
                 // Polygons
