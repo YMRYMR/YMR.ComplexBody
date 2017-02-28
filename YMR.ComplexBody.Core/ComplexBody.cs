@@ -535,7 +535,7 @@ namespace YMR.ComplexBody.Core
             target.borderColor = this.borderColor;
             target.borderWidth = this.borderWidth;
             target.material = this.material;
-            target.points = this.points;
+            target.points = new List<Vector2>(this.points.ToArray());
             target.scaleTexture = this.scaleTexture;
             target.showBorder = this.showBorder;
             target.showPoints = this.showPoints;
