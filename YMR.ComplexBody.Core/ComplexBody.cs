@@ -149,6 +149,7 @@ namespace YMR.ComplexBody.Core
                         {
                             changed = true;
                             lastVertices.Clear();
+                            break;
                         }
                     }
                 }
@@ -158,7 +159,7 @@ namespace YMR.ComplexBody.Core
                     CPoint2D[] vertices = new CPoint2D[nVertices];
                     for (int i = 0; i < nVertices; i++)
                     {
-                        if (nLastVertices != nVertices || vertices[i].X != points[i].X || vertices[i].Y != points[i].Y)
+                        if (nLastVertices != nVertices || vertices[i] == null || vertices[i].X != points[i].X || vertices[i].Y != points[i].Y)
                         {
                             CPoint2D v = new CPoint2D(points[i].X, points[i].Y);
                             vertices[i] = v;
@@ -189,7 +190,7 @@ namespace YMR.ComplexBody.Core
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { }
         }
 
         public override void Draw(IDrawDevice device)
