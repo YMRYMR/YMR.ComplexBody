@@ -526,5 +526,22 @@ namespace YMR.ComplexBody.Core
         }
 
         #endregion
+
+        protected override void OnCopyDataTo(object targetObj, ICloneOperation operation)
+        {
+            base.OnCopyDataTo(targetObj, operation);
+            ComplexBody target = targetObj as ComplexBody;
+
+            target.borderColor = this.borderColor;
+            target.borderWidth = this.borderWidth;
+            target.material = this.material;
+            target.points = this.points;
+            target.scaleTexture = this.scaleTexture;
+            target.showBorder = this.showBorder;
+            target.showPoints = this.showPoints;
+            target.showPolygons = this.showPolygons;
+            target.showTexture = this.showTexture;
+            target.updatableUsingMouse = this.updatableUsingMouse;
+        }
     }
 }
