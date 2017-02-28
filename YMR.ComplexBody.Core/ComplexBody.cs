@@ -212,7 +212,7 @@ namespace YMR.ComplexBody.Core
                 mustBeUpdated = false;
                 OnUpdate(canvas);
             }
-            else if (DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
+            else if (updatableUsingMouse && DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
             {
                 ctrlPressed = DualityApp.Keyboard[Duality.Input.Key.ControlLeft] || DualityApp.Keyboard[Duality.Input.Key.ControlRight];
                 mouseLeft = DualityApp.Mouse.ButtonPressed(Duality.Input.MouseButton.Left);
