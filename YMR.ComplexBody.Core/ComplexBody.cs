@@ -307,6 +307,11 @@ namespace YMR.ComplexBody.Core
                 TransformPoint(trans, ref transformedX, ref transformedY);
                 // Transformed position i + 1
                 float transformedX1 = 0, transformedY1 = 0;
+                // Zoomed vertices
+                Vector3 pointPos = new Vector3(transformedX, transformedY, trans.Pos.Z);
+                float pointScale = 1;
+                device.PreprocessCoords(ref pointPos, ref pointScale);
+
                 if (i < t - 1)
                 {
                     transformedX1 = points[i + 1].X;
@@ -315,7 +320,7 @@ namespace YMR.ComplexBody.Core
                 }
 
                 // Point selection
-                if (MathF.Distance(transformedMouseX, transformedMouseY, transformedX, transformedY) < 10)
+                if (MathF.Distance(transformedMouseX, transformedMouseY, transformedX, transformedY) < pointPos.Z / 50)
                 {
                     if (selectedPointId == -1) selectedPointId = i;
                 }
@@ -323,29 +328,29 @@ namespace YMR.ComplexBody.Core
                 // Vertices
                 if (showPoints)
                 {
-                    canvas.PushState();
+                    /*canvas.PushState();
                     canvas.State.TextFont = Font.GenericMonospace8;
                     canvas.State.ColorTint = i == selectedPointId ? new ColorRgba(0, 0, 0, 255) : new ColorRgba(255, 255, 255, 255);
                     canvas.DrawText(i.ToString(), transformedX, transformedY, trans.Pos.Z - .01f, Alignment.Center, false);
-                    canvas.PopState();
+                    canvas.PopState();*/
 
                     if (i == selectedPointId)
                     {
                         canvas.PushState();
                         canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
                         if (ctrlPressed) canvas.FillRect(transformedX - 10, transformedY - 10, 20, 20);
-                        else canvas.FillCircle(transformedX, transformedY, 10);
+                        else canvas.FillCircle(transformedX, transformedY, pointPos.Z / 50);
                         canvas.PopState();
                     }
                     else
                     {
                         canvas.PushState();
                         canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
-                        canvas.FillCircle(transformedX, transformedY, 11);
+                        canvas.FillCircle(transformedX, transformedY, (pointPos.Z / 50) + 1);
                         canvas.PopState();
                         canvas.PushState();
                         canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
-                        canvas.FillCircle(transformedX, transformedY, 10);
+                        canvas.FillCircle(transformedX, transformedY, pointPos.Z / 50);
                         canvas.PopState();
                     }
                 }
