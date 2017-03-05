@@ -15,6 +15,8 @@ namespace YMR.ComplexBody.Editor
 {
     public class ComplexBodyCamViewState : ObjectEditorCamViewState
     {
+        private ToolStrip toolstrip;
+
         protected Core.ComplexBody selectedBody = null;
 
         public override string StateName
@@ -31,6 +33,43 @@ namespace YMR.ComplexBody.Editor
         protected override void OnEnterState()
         {
             base.OnEnterState();
+
+            // Init the custom tile editing toolbar
+            {
+                this.View.SuspendLayout();
+                toolstrip = new ToolStrip();
+                toolstrip.SuspendLayout();
+
+                toolstrip.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+                toolstrip.Name = "toolstrip";
+                toolstrip.Text = "ComplexBody Editor Tools";
+                toolstrip.Renderer = new Duality.Editor.Controls.ToolStrip.DualitorToolStripProfessionalRenderer();
+
+                ToolStripButton btnInvHor = new ToolStripButton()
+                {
+                    Tag = "Invert Horizontal",
+                    Text = "Invert Horizontal",
+                    DisplayStyle = ToolStripItemDisplayStyle.Text,
+                    AutoToolTip = true
+                };
+                ToolStripButton btnInvVert = new ToolStripButton()
+                {
+                    Tag = "Invert Vertical",
+                    Text = "Invert Vertical",
+                    DisplayStyle = ToolStripItemDisplayStyle.Text,
+                    AutoToolTip = true
+                };
+                btnInvHor.Click += BtnInvHor_Click;
+                btnInvVert.Click += BtnInvVert_Click;
+                toolstrip.Items.Add(btnInvHor);
+                toolstrip.Items.Add(btnInvVert);
+
+                this.View.Controls.Add(toolstrip);
+                this.View.Controls.SetChildIndex(toolstrip, this.View.Controls.IndexOf(this.View.ToolbarCamera));
+                toolstrip.ResumeLayout(true);
+                this.View.ResumeLayout(true);
+            }
+
             this.View.SetToolbarCamSettingsEnabled(false);
             this.CameraObj.Active = false;
 
@@ -39,11 +78,39 @@ namespace YMR.ComplexBody.Editor
             DualityEditorApp.ObjectPropertyChanged += this.DualityEditorApp_ObjectPropertyChanged;
         }
 
+        private void BtnInvVert_Click(object sender, EventArgs e)
+        {
+            Invert(1, -1);
+        }
+        private void BtnInvHor_Click(object sender, EventArgs e)
+        {
+            Invert(-1, 1);
+        }
+        private void Invert(int x, int y)
+        {
+            int t = selectedBody.Points.Count;
+            for(int i = 0; i < t; i++)
+            {
+                selectedBody.Points[i] = new Vector2(selectedBody.Points[i].X * x, selectedBody.Points[i].Y * y);
+            }
+            selectedBody.UpdateShapes();
+        }
+
         protected override void OnLeaveState()
         {
             // Unregister events
             DualityEditorApp.SelectionChanged -= this.DualityEditorApp_SelectionChanged;
             DualityEditorApp.ObjectPropertyChanged -= this.DualityEditorApp_ObjectPropertyChanged;
+
+            this.View.SuspendLayout();
+            toolstrip.SuspendLayout();
+
+            toolstrip.Items.Clear();
+            this.View.Controls.Remove(toolstrip);
+            toolstrip.Dispose();
+
+            toolstrip.ResumeLayout(true);
+            this.View.ResumeLayout(true);
 
             base.OnLeaveState();
             this.View.SetToolbarCamSettingsEnabled(true);
