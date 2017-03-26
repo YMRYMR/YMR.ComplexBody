@@ -44,6 +44,7 @@ namespace YMR.ComplexBody.Core
         private bool showPoints = true;
         private bool showBorder = true;
         private bool showBorderGeometry = true;
+        private bool showBorderDummies = false;
         private bool showPolygons = true;
         private bool showTexture = true;
         private bool updatableUsingMouse = true;
@@ -81,6 +82,7 @@ namespace YMR.ComplexBody.Core
         public bool ShowPoints { get { return showPoints; } set { showPoints = value; } }
         public bool ShowBorder { get { return showBorder; } set { showBorder = value; } }
         public bool ShowBorderGeometry { get { return showBorderGeometry; } set { showBorderGeometry = value; } }
+        public bool ShowBorderDummies { get { return showBorderDummies; } set { showBorderDummies = value; } }
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; } }
         public bool ShowTexture { get { return showTexture; } set { showTexture = value; } }
         public bool UpdatableUsingMouse { get { return updatableUsingMouse; } set { updatableUsingMouse = value; } }
@@ -362,7 +364,7 @@ namespace YMR.ComplexBody.Core
                 }
 
                 // Border Material or Border Lines
-                if (showBorder || showBorderGeometry)
+                if (showBorder || showBorderGeometry || showBorderDummies)
                 {
                     IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
 
@@ -408,11 +410,29 @@ namespace YMR.ComplexBody.Core
                         Vector2[] borderPoly = new Vector2[4];
                         borderPoly[0] = ordererdTriangle[0];
                         borderPoly[1] = ordererdTriangle[1];
-                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
+                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) - MathF.RadAngle90;
                         float angle02 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[2].X, borderPoly[2].Y) - MathF.RadAngle90;
                         float angle12 = MathF.Angle(borderPoly[1].X, borderPoly[1].Y, borderPoly[2].X, borderPoly[2].Y) - MathF.RadAngle90;
+
+                        float halfDistance = MathF.Distance(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) * .5f;
+                        Vector2 outerCenterPoint = new Vector2(borderPoly[0].X + halfDistance * MathF.Cos(angle01), borderPoly[0].Y + halfDistance * MathF.Sin(angle01));
+                        outerCenterPoint.X += trans.Pos.X;
+                        outerCenterPoint.Y += trans.Pos.Y;
+                        Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
+
+                        Vector2 tempInnerLinePointA = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
+                        Vector2 tempInnerLinePointB = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
+
                         borderPoly[2] = new Vector2(borderPoly[1].X + borderWidth * MathF.Cos(angle12), borderPoly[1].Y + borderWidth * MathF.Sin(angle12));
                         borderPoly[3] = new Vector2(borderPoly[0].X + borderWidth * MathF.Cos(angle02), borderPoly[0].Y + borderWidth * MathF.Sin(angle02));
+
+                        //float tempX, tempY;
+                        //borderPoly[2] = LineIntersectionPoint(tempInnerLinePointA, tempInnerLinePointB, borderPoly[1], borderPoly[2]);
+                        //borderPoly[3] = LineIntersectionPoint(tempInnerLinePointA, tempInnerLinePointB, borderPoly[0], borderPoly[3]);
+                        //MathF.LinesCross(tempInnerLinePointA.X, tempInnerLinePointA.Y, tempInnerLinePointB.X, tempInnerLinePointB.Y, borderPoly[1].X, borderPoly[1].Y, borderPoly[2].X, borderPoly[2].Y, out tempX, out tempY, false);
+                        //borderPoly[2] = new Vector2(tempX, tempY);
+                        //MathF.LinesCross(tempInnerLinePointA.X, tempInnerLinePointA.Y, tempInnerLinePointB.X, tempInnerLinePointB.Y, borderPoly[0].X, borderPoly[0].Y, borderPoly[3].X, borderPoly[3].Y, out tempX, out tempY, false);
+                        //borderPoly[3] = new Vector2(tempX, tempY);
 
                         //Rect localRect = new Rect(MathF.Min(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
                         //                          MathF.Min(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y),
@@ -435,6 +455,22 @@ namespace YMR.ComplexBody.Core
                             canvas.PopState();
                         }
 
+                        if (showBorderDummies)
+                        {
+                            canvas.PushState();
+                            canvas.State.TransformAngle = angle;
+                            canvas.State.TransformScale = scale;
+                            canvas.State.ColorTint = ColorRgba.Blue.WithAlpha(200);
+                            canvas.FillPolygonOutline(ordererdTriangle, lineWidth, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+                            canvas.FillCircle(outerCenterPoint.X, outerCenterPoint.Y, lineWidth * 2f);
+                            canvas.FillCircle(innerCenterPoint.X, innerCenterPoint.Y, lineWidth * 2f);
+                            canvas.FillThickLine(outerCenterPoint.X, outerCenterPoint.Y, innerCenterPoint.X, innerCenterPoint.Y, lineWidth);
+                            canvas.FillThickLine(tempInnerLinePointA.X, tempInnerLinePointA.Y, tempInnerLinePointB.X, tempInnerLinePointB.Y, lineWidth);
+                            canvas.FillCircle(tempInnerLinePointA.X, tempInnerLinePointA.Y, lineWidth * 2f);
+                            canvas.FillCircle(tempInnerLinePointB.X, tempInnerLinePointB.Y, lineWidth * 2f);
+                            canvas.PopState();
+                        }
+
                         if (showBorderGeometry)
                         {
                             canvas.PushState();
@@ -445,7 +481,7 @@ namespace YMR.ComplexBody.Core
                             for (int j = 0; j < 4; j++)
                             {
                                 TransformPoint(trans, ref borderPoly[j].X, ref borderPoly[j].Y);
-                                canvas.FillCircle(borderPoly[j].X, borderPoly[j].Y, 5);
+                                canvas.FillCircle(borderPoly[j].X, borderPoly[j].Y, lineWidth * 2f);
                             }
                             canvas.PopState();
                         }
@@ -522,6 +558,36 @@ namespace YMR.ComplexBody.Core
                 canvas.DrawLine(transformedMouseX - 10, transformedMouseY, transformedMouseX + 10, transformedMouseY);
                 canvas.DrawLine(transformedMouseX, transformedMouseY - 10, transformedMouseX, transformedMouseY + 10);
                 canvas.PopState();
+            }
+        }
+
+        Vector2 LineIntersectionPoint(Vector2 ps1, Vector2 pe1, Vector2 ps2, Vector2 pe2)
+        {
+            try
+            {
+                // Get A,B,C of first line - points : ps1 to pe1
+                float A1 = pe1.Y - ps1.Y;
+                float B1 = ps1.X - pe1.X;
+                float C1 = A1 * ps1.X + B1 * ps1.Y;
+
+                // Get A,B,C of second line - points : ps2 to pe2
+                float A2 = pe2.Y - ps2.Y;
+                float B2 = ps2.X - pe2.X;
+                float C2 = A2 * ps2.X + B2 * ps2.Y;
+
+                // Get delta and check if the lines are parallel
+                float delta = A1 * B2 - A2 * B1;
+                if (delta == 0) return Vector2.Zero; //throw new System.Exception("Lines are parallel");
+
+                // now return the Vector2 intersection point
+                return new Vector2(
+                    (B2 * C1 - B1 * C2) / delta,
+                    (A1 * C2 - A2 * C1) / delta
+                );
+            }
+            catch
+            {
+                return Vector2.Zero;
             }
         }
 
