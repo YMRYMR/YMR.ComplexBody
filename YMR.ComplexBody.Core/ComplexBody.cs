@@ -43,12 +43,16 @@ namespace YMR.ComplexBody.Core
         };
         private bool showPoints = true;
         private bool showBorder = true;
+        private bool showBorderGeometry = true;
         private bool showPolygons = true;
         private bool showTexture = true;
         private bool updatableUsingMouse = true;
-        private Material material = Material.Checkerboard.Res;
+        private ContentRef<Material> sharedMaterial = Material.Checkerboard;
+        private ContentRef<Material> borderMaterial = Material.Checkerboard;
         private float borderWidth = 2;
-        private ColorRgba borderColor = new ColorRgba(255, 0, 0, 200);
+        private float lineWidth = 2;
+        private ColorRgba polygonColor = new ColorRgba(255, 0, 0, 200);
+        private ColorRgba borderGeometryColor = new ColorRgba(0, 255, 0, 200);
         private bool scaleTexture = false;
 
         [DontSerialize]
@@ -76,13 +80,17 @@ namespace YMR.ComplexBody.Core
         public List<Vector2> Points { get { return points; } set { points = value; } }
         public bool ShowPoints { get { return showPoints; } set { showPoints = value; } }
         public bool ShowBorder { get { return showBorder; } set { showBorder = value; } }
+        public bool ShowBorderGeometry { get { return showBorderGeometry; } set { showBorderGeometry = value; } }
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; } }
         public bool ShowTexture { get { return showTexture; } set { showTexture = value; } }
         public bool UpdatableUsingMouse { get { return updatableUsingMouse; } set { updatableUsingMouse = value; } }
-        public Material Material { get { return material; } set { material = value; } }
+        public ContentRef<Material> SharedMaterial { get { return sharedMaterial; } set { sharedMaterial = value; } }
+        public ContentRef<Material> BorderMaterial { get { return borderMaterial; } set { borderMaterial = value; } }
         public override float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
         public float BorderWidth { get { return borderWidth; } set { borderWidth = value; } }
-        public ColorRgba BorderColor { get { return borderColor; } set { borderColor = value; } }
+        public float LineWidth { get { return lineWidth; } set { lineWidth = value; } }
+        public ColorRgba PolygonColor { get { return polygonColor; } set { polygonColor = value; } }
+        public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; } }
         public bool ScaleTexture { get { return scaleTexture; } set { scaleTexture = value; } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
@@ -206,8 +214,6 @@ namespace YMR.ComplexBody.Core
             Transform trans = this.GameObj.GetComponent<Transform>();
             RigidBody rb = this.GameObj.GetComponent<RigidBody>();
 
-            ColorRgba lineColor = IsSelected ? new ColorRgba(0, 255, 0, 200) : borderColor;
-
             if (mustBeUpdated)
             {
                 mustBeUpdated = false;
@@ -238,8 +244,8 @@ namespace YMR.ComplexBody.Core
                     
                     Rect boundingRect = points.BoundingBox();
                     
-                    float brW = scaleTexture ? boundingRect.W : this.material.MainTexture.Res.Size.X;
-                    float brH = scaleTexture ? boundingRect.H : this.material.MainTexture.Res.Size.Y;
+                    float brW = scaleTexture ? boundingRect.W : this.sharedMaterial.Res.MainTexture.Res.Size.X;
+                    float brH = scaleTexture ? boundingRect.H : this.sharedMaterial.Res.MainTexture.Res.Size.Y;
                     float ratioW = brH / brW;
                     float ratioH = brW / brH;
 
@@ -255,7 +261,7 @@ namespace YMR.ComplexBody.Core
                         Rect localRect = shape.AABB;
 
                         canvas.PushState();
-                        canvas.State.SetMaterial(this.material);
+                        canvas.State.SetMaterial(this.sharedMaterial);
                         canvas.State.TransformAngle = angle;
                         canvas.State.TransformScale = scale;
                         canvas.State.TextureCoordinateRect = new Rect(
@@ -275,7 +281,7 @@ namespace YMR.ComplexBody.Core
                 if (showPolygons)
                 {
                     canvas.PushState();
-                    canvas.State.ColorTint = lineColor;
+                    canvas.State.ColorTint = polygonColor;
                     canvas.State.TransformAngle = angle;
                     canvas.State.TransformScale = scale;
                     IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
@@ -288,7 +294,7 @@ namespace YMR.ComplexBody.Core
                             vs[i] = new Vector2(shape.Vertices[i].X, shape.Vertices[i].Y);
                         }
 
-                        canvas.FillPolygonOutline(vs, borderWidth, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+                        canvas.FillPolygonOutline(vs, lineWidth, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
                         //canvas.DrawPolygon(vs, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
                     }
                     canvas.PopState();
@@ -355,20 +361,129 @@ namespace YMR.ComplexBody.Core
                     }
                 }
 
-                // Border
-                if (showBorder && !showPolygons)
+                // Border Material or Border Lines
+                if (showBorder || showBorderGeometry)
                 {
-                    canvas.PushState();
-                    canvas.State.ColorTint = lineColor;
-                    if (i < t - 1)
+                    IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
+
+                    Rect boundingRect = points.BoundingBox();
+
+                    float brW = scaleTexture ? boundingRect.W : this.borderMaterial.Res.MainTexture.Res.Size.X;
+                    float brH = scaleTexture ? boundingRect.H : this.borderMaterial.Res.MainTexture.Res.Size.Y;
+                    float ratioW = brH / brW;
+                    float ratioH = brW / brH;
+
+                    Vector2 p0, p1;
+                    p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
+                    if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
+                    else p1 = new Vector2(points[0].X, points[0].Y);
+                        
+                    Vector2[] ordererdTriangle = new Vector2[3];
+                    bool found = false;
+                    foreach (PolyShapeInfo shape in shapes)
                     {
-                        canvas.FillThickLine(transformedX, transformedY, transformedX1, transformedY1, borderWidth);
+                        int tShapes = shape.Vertices.Count();
+                        int matchingPoints = 0;
+                        for (int j = 0; j < tShapes; j++)
+                        {
+                            if ((MathF.Abs(shape.Vertices[j].X - p0.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p0.Y) <= 1) ||
+                                (MathF.Abs(shape.Vertices[j].X - p1.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p1.Y) <= 1))
+                            {
+                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
+                                matchingPoints++;
+                            }
+                            else
+                            {
+                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
+                            }
+                        }
+                        if (matchingPoints == 2)
+                        {
+                            found = true;
+                            break;
+                        }
                     }
-                    else
+                    if (found)
                     {
-                        canvas.FillThickLine(transformedX, transformedY, transformedX0, transformedY0, borderWidth);
+                        Vector2[] borderPoly = new Vector2[4];
+                        borderPoly[0] = ordererdTriangle[0];
+                        borderPoly[1] = ordererdTriangle[1];
+                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
+                        float angle02 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[2].X, borderPoly[2].Y) - MathF.RadAngle90;
+                        float angle12 = MathF.Angle(borderPoly[1].X, borderPoly[1].Y, borderPoly[2].X, borderPoly[2].Y) - MathF.RadAngle90;
+                        borderPoly[2] = new Vector2(borderPoly[1].X + borderWidth * MathF.Cos(angle12), borderPoly[1].Y + borderWidth * MathF.Sin(angle12));
+                        borderPoly[3] = new Vector2(borderPoly[0].X + borderWidth * MathF.Cos(angle02), borderPoly[0].Y + borderWidth * MathF.Sin(angle02));
+
+                        //Rect localRect = new Rect(MathF.Min(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
+                        //                          MathF.Min(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y),
+                        //                          MathF.Max(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
+                        //                          MathF.Max(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y));
+
+                        if (showBorder)
+                        {
+                            canvas.PushState();
+                            canvas.State.SetMaterial(this.borderMaterial);
+                            canvas.State.TransformAngle = angle;
+                            canvas.State.TransformScale = scale;
+                            //canvas.State.TextureCoordinateRect = new Rect(
+                            //    (1 / brW) * localRect.X,
+                            //    (1 / brH) * localRect.Y,
+                            //    (1 / brW) * localRect.W,
+                            //    (1 / brH) * localRect.H
+                            //);
+                            canvas.FillPolygon(borderPoly, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+                            canvas.PopState();
+                        }
+
+                        if (showBorderGeometry)
+                        {
+                            canvas.PushState();
+                            canvas.State.TransformAngle = angle;
+                            canvas.State.TransformScale = scale;
+                            canvas.State.ColorTint = borderGeometryColor;
+                            canvas.FillPolygonOutline(borderPoly, lineWidth, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+                            for (int j = 0; j < 4; j++)
+                            {
+                                TransformPoint(trans, ref borderPoly[j].X, ref borderPoly[j].Y);
+                                canvas.FillCircle(borderPoly[j].X, borderPoly[j].Y, 5);
+                            }
+                            canvas.PopState();
+                        }
                     }
-                    canvas.PopState();
+                    //canvas.PushState();
+                    //if (isSelected) canvas.State.ColorTint = lineColor;
+                    //else canvas.State.SetMaterial(borderMaterial);
+
+                    //Rect boundingRect = points.BoundingBox();
+
+                    //float brW = scaleTexture ? boundingRect.W : this.sharedMaterial.Res.MainTexture.Res.Size.X;
+                    //float brH = scaleTexture ? boundingRect.H : this.sharedMaterial.Res.MainTexture.Res.Size.Y;
+                    //float ratioW = brH / brW;
+                    //float ratioH = brW / brH;
+
+                    ////float minX = MathF.Min(transformedX, transformedX1);
+                    ////float minY = MathF.Min(transformedY, transformedY1);
+                    ////Rect localRect = new Rect(minX, minY, MathF.Max(transformedX, transformedX1) - minX, MathF.Max(transformedY, transformedY1) - minY);
+
+                    //canvas.State.TransformAngle = angle;
+                    //canvas.State.TransformScale = scale;
+                    ////canvas.State.TextureCoordinateRect = new Rect(
+                    ////    (1 / brW) * localRect.X,
+                    ////    (1 / brH) * localRect.Y,
+                    ////    (1 / brW) * localRect.W,
+                    ////    (1 / brH) * localRect.H
+                    ////);
+
+                    //if (i < t - 1) canvas.FillThickLine(transformedX, transformedY, transformedX1, transformedY1, lineWidth);
+                    //else canvas.FillThickLine(transformedX, transformedY, transformedX0, transformedY0, lineWidth);
+
+                    //canvas.PushState();
+                    //if (i < t - 1) canvas.State.TransformAngle = MathF.Angle(transformedX, transformedY, transformedX1, transformedY1);
+                    //else canvas.State.TransformAngle = MathF.Angle(transformedX, transformedY, transformedX0, transformedY0);
+                    //canvas.FillCircle(transformedX, transformedY, lineWidth * .5f);
+                    //canvas.PopState();
+
+                    //canvas.PopState();
                 }
 
                 // Snap lines
@@ -538,9 +653,10 @@ namespace YMR.ComplexBody.Core
             base.OnCopyDataTo(targetObj, operation);
             ComplexBody target = targetObj as ComplexBody;
 
-            target.borderColor = this.borderColor;
+            target.polygonColor = this.polygonColor;
             target.borderWidth = this.borderWidth;
-            target.material = this.material;
+            target.sharedMaterial = this.sharedMaterial;
+            target.borderMaterial = this.borderMaterial;
             target.points = new List<Vector2>(this.points.ToArray());
             target.scaleTexture = this.scaleTexture;
             target.showBorder = this.showBorder;
