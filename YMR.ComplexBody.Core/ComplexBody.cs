@@ -42,7 +42,7 @@ namespace YMR.ComplexBody.Core
             new Vector2(100, 100), 
         };
         private bool showPoints = true;
-        private bool showBorder = true;
+        private bool showBorderMaterial = true;
         private bool showBorderGeometry = true;
         private bool showBorderDummies = false;
         private bool showPolygons = true;
@@ -80,7 +80,7 @@ namespace YMR.ComplexBody.Core
         /// </summary>
         public List<Vector2> Points { get { return points; } set { points = value; } }
         public bool ShowPoints { get { return showPoints; } set { showPoints = value; } }
-        public bool ShowBorder { get { return showBorder; } set { showBorder = value; } }
+        public bool ShowBorderMaterial { get { return showBorderMaterial; } set { showBorderMaterial = value; } }
         public bool ShowBorderGeometry { get { return showBorderGeometry; } set { showBorderGeometry = value; } }
         public bool ShowBorderDummies { get { return showBorderDummies; } set { showBorderDummies = value; } }
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; } }
@@ -303,6 +303,77 @@ namespace YMR.ComplexBody.Core
                 }
             }
 
+
+            Vector2[] innerLinePointsA = new Vector2[t];
+            Vector2[] innerLinePointsB = new Vector2[t];
+            Vector2[,] orderedTriangles = new Vector2[t, 3];
+            for (int i = 0; i < t; i++)
+            {   
+                // Border
+                if (showBorderMaterial || showBorderGeometry || showBorderDummies)
+                {
+                    IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
+
+                    Rect boundingRect = points.BoundingBox();
+
+                    float brW = scaleTexture ? boundingRect.W : this.borderMaterial.Res.MainTexture.Res.Size.X;
+                    float brH = scaleTexture ? boundingRect.H : this.borderMaterial.Res.MainTexture.Res.Size.Y;
+                    float ratioW = brH / brW;
+                    float ratioH = brW / brH;
+
+                    Vector2 p0, p1;
+                    p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
+                    if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
+                    else p1 = new Vector2(points[0].X, points[0].Y);
+
+                    Vector2[] ordererdTriangle = new Vector2[3];
+                    bool found = false;
+                    foreach (PolyShapeInfo shape in shapes)
+                    {
+                        int tShapes = shape.Vertices.Count();
+                        int matchingPoints = 0;
+                        for (int j = 0; j < tShapes; j++)
+                        {
+                            if ((MathF.Abs(shape.Vertices[j].X - p0.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p0.Y) <= 1) ||
+                                (MathF.Abs(shape.Vertices[j].X - p1.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p1.Y) <= 1))
+                            {
+                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
+                                matchingPoints++;
+                            }
+                            else
+                            {
+                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
+                            }
+                        }
+                        if (matchingPoints == 2)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                    {
+                        orderedTriangles[i, 0] = ordererdTriangle[0];
+                        orderedTriangles[i, 1] = ordererdTriangle[1];
+                        orderedTriangles[i, 2] = ordererdTriangle[2];
+                        Vector2[] borderPoly = new Vector2[4];
+                        borderPoly[0] = ordererdTriangle[0];
+                        borderPoly[1] = ordererdTriangle[1];
+                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) - MathF.RadAngle90;
+
+                        float halfDistance = MathF.Distance(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) * .5f;
+                        Vector2 outerCenterPoint = new Vector2(borderPoly[0].X + halfDistance * MathF.Cos(angle01), borderPoly[0].Y + halfDistance * MathF.Sin(angle01));
+                        outerCenterPoint.X += trans.Pos.X;
+                        outerCenterPoint.Y += trans.Pos.Y;
+                        Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
+
+                        innerLinePointsA[i] = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
+                        innerLinePointsB[i] = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
+                    }
+                }
+            }
+
+
             for (int i = 0; i < t; i++)
             {
                 // Transformed position 0
@@ -363,8 +434,8 @@ namespace YMR.ComplexBody.Core
                     }
                 }
 
-                // Border Material or Border Lines
-                if (showBorder || showBorderGeometry || showBorderDummies)
+                // Border
+                if (showBorderMaterial || showBorderGeometry || showBorderDummies)
                 {
                     IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
 
@@ -381,38 +452,13 @@ namespace YMR.ComplexBody.Core
                     else p1 = new Vector2(points[0].X, points[0].Y);
                         
                     Vector2[] ordererdTriangle = new Vector2[3];
-                    bool found = false;
-                    foreach (PolyShapeInfo shape in shapes)
-                    {
-                        int tShapes = shape.Vertices.Count();
-                        int matchingPoints = 0;
-                        for (int j = 0; j < tShapes; j++)
-                        {
-                            if ((MathF.Abs(shape.Vertices[j].X - p0.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p0.Y) <= 1) ||
-                                (MathF.Abs(shape.Vertices[j].X - p1.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p1.Y) <= 1))
-                            {
-                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
-                                matchingPoints++;
-                            }
-                            else
-                            {
-                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
-                            }
-                        }
-                        if (matchingPoints == 2)
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
+                    bool found = true;
                     if (found)
                     {
                         Vector2[] borderPoly = new Vector2[4];
-                        borderPoly[0] = ordererdTriangle[0];
-                        borderPoly[1] = ordererdTriangle[1];
+                        borderPoly[0] = orderedTriangles[i, 0];
+                        borderPoly[1] = orderedTriangles[i, 1];
                         float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) - MathF.RadAngle90;
-                        float angle02 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[2].X, borderPoly[2].Y) - MathF.RadAngle90;
-                        float angle12 = MathF.Angle(borderPoly[1].X, borderPoly[1].Y, borderPoly[2].X, borderPoly[2].Y) - MathF.RadAngle90;
 
                         float halfDistance = MathF.Distance(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) * .5f;
                         Vector2 outerCenterPoint = new Vector2(borderPoly[0].X + halfDistance * MathF.Cos(angle01), borderPoly[0].Y + halfDistance * MathF.Sin(angle01));
@@ -420,26 +466,57 @@ namespace YMR.ComplexBody.Core
                         outerCenterPoint.Y += trans.Pos.Y;
                         Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
 
-                        Vector2 tempInnerLinePointA = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
-                        Vector2 tempInnerLinePointB = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
+                        Vector2[] tempInnerLinePointsA = new Vector2[3];
+                        Vector2[] tempInnerLinePointsB = new Vector2[3];
 
-                        borderPoly[2] = new Vector2(borderPoly[1].X + borderWidth * MathF.Cos(angle12), borderPoly[1].Y + borderWidth * MathF.Sin(angle12));
-                        borderPoly[3] = new Vector2(borderPoly[0].X + borderWidth * MathF.Cos(angle02), borderPoly[0].Y + borderWidth * MathF.Sin(angle02));
-
-                        //float tempX, tempY;
-                        //borderPoly[2] = LineIntersectionPoint(tempInnerLinePointA, tempInnerLinePointB, borderPoly[1], borderPoly[2]);
-                        //borderPoly[3] = LineIntersectionPoint(tempInnerLinePointA, tempInnerLinePointB, borderPoly[0], borderPoly[3]);
-                        //MathF.LinesCross(tempInnerLinePointA.X, tempInnerLinePointA.Y, tempInnerLinePointB.X, tempInnerLinePointB.Y, borderPoly[1].X, borderPoly[1].Y, borderPoly[2].X, borderPoly[2].Y, out tempX, out tempY, false);
-                        //borderPoly[2] = new Vector2(tempX, tempY);
-                        //MathF.LinesCross(tempInnerLinePointA.X, tempInnerLinePointA.Y, tempInnerLinePointB.X, tempInnerLinePointB.Y, borderPoly[0].X, borderPoly[0].Y, borderPoly[3].X, borderPoly[3].Y, out tempX, out tempY, false);
-                        //borderPoly[3] = new Vector2(tempX, tempY);
+                        if (i < t - 1)
+                        {
+                            if (i > 0)
+                            {
+                                tempInnerLinePointsA[0] = innerLinePointsA[i - 1];
+                                tempInnerLinePointsB[0] = innerLinePointsB[i - 1];
+                            }
+                            else
+                            {
+                                tempInnerLinePointsA[0] = innerLinePointsA[t - 1];
+                                tempInnerLinePointsB[0] = innerLinePointsB[t - 1];
+                            }
+                            tempInnerLinePointsA[1] = innerLinePointsA[i];
+                            tempInnerLinePointsB[1] = innerLinePointsB[i];
+                            tempInnerLinePointsA[2] = innerLinePointsA[i + 1];
+                            tempInnerLinePointsB[2] = innerLinePointsB[i + 1];
+                        }
+                        else // Last point
+                        {
+                            tempInnerLinePointsA[0] = innerLinePointsA[i - 1];
+                            tempInnerLinePointsB[0] = innerLinePointsB[i - 1];
+                            tempInnerLinePointsA[1] = innerLinePointsA[i];
+                            tempInnerLinePointsB[1] = innerLinePointsB[i];
+                            tempInnerLinePointsA[2] = innerLinePointsA[0];
+                            tempInnerLinePointsB[2] = innerLinePointsB[0];
+                        }
+                        // Inner point A
+                        float crossX, crossY;
+                        MathF.LinesCross(tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y,
+                                         tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
+                                         tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
+                                         tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                         out crossX, out crossY, true);
+                        borderPoly[2] = new Vector2(crossX, crossY);
+                        // Inner point B
+                        MathF.LinesCross(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
+                                         tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                         tempInnerLinePointsA[2].X, tempInnerLinePointsA[2].Y,
+                                         tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
+                                         out crossX, out crossY, true);
+                        borderPoly[3] = new Vector2(crossX, crossY);
 
                         //Rect localRect = new Rect(MathF.Min(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
                         //                          MathF.Min(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y),
                         //                          MathF.Max(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
                         //                          MathF.Max(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y));
 
-                        if (showBorder)
+                        if (showBorderMaterial)
                         {
                             canvas.PushState();
                             canvas.State.SetMaterial(this.borderMaterial);
@@ -465,9 +542,10 @@ namespace YMR.ComplexBody.Core
                             canvas.FillCircle(outerCenterPoint.X, outerCenterPoint.Y, lineWidth * 2f);
                             canvas.FillCircle(innerCenterPoint.X, innerCenterPoint.Y, lineWidth * 2f);
                             canvas.FillThickLine(outerCenterPoint.X, outerCenterPoint.Y, innerCenterPoint.X, innerCenterPoint.Y, lineWidth);
-                            canvas.FillThickLine(tempInnerLinePointA.X, tempInnerLinePointA.Y, tempInnerLinePointB.X, tempInnerLinePointB.Y, lineWidth);
-                            canvas.FillCircle(tempInnerLinePointA.X, tempInnerLinePointA.Y, lineWidth * 2f);
-                            canvas.FillCircle(tempInnerLinePointB.X, tempInnerLinePointB.Y, lineWidth * 2f);
+                            canvas.FillThickLine(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y, lineWidth);
+                            canvas.FillCircle(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, lineWidth * 2f);
+                            canvas.FillCircle(tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y, lineWidth * 2f);
+                            canvas.FillCircle(borderPoly[2].X, borderPoly[2].Y, lineWidth * 2f);
                             canvas.PopState();
                         }
 
@@ -725,7 +803,7 @@ namespace YMR.ComplexBody.Core
             target.borderMaterial = this.borderMaterial;
             target.points = new List<Vector2>(this.points.ToArray());
             target.scaleTexture = this.scaleTexture;
-            target.showBorder = this.showBorder;
+            target.showBorderMaterial = this.showBorderMaterial;
             target.showPoints = this.showPoints;
             target.showPolygons = this.showPolygons;
             target.showTexture = this.showTexture;
