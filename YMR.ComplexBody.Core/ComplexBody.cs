@@ -655,7 +655,6 @@ namespace YMR.ComplexBody.Core
                         canvas.FillCircle(bi.innerA.X, bi.innerA.Y, lineWidth * 2f);
                         canvas.FillCircle(bi.innerB.X, bi.innerB.Y, lineWidth * 2f);
                         canvas.FillCircle(bi.center.X, bi.center.Y, lineWidth * 2f);
-
                         canvas.PopState();
                     }
 
@@ -736,6 +735,28 @@ namespace YMR.ComplexBody.Core
                     canvas.DrawLine(transformedX, transformedSnapYMax, transformedX, transformedSnapYMin);
                     canvas.PopState();
                 }
+            }
+
+            if (showBorderDummies)
+            {
+                canvas.PushState();
+                // Game object center
+                canvas.State.ColorTint = ColorRgba.White.WithAlpha(200);
+                canvas.FillCircle(trans.Pos.X, trans.Pos.Y, lineWidth * 4f);
+                canvas.DrawCircle(trans.Pos.X, trans.Pos.Y, lineWidth * 6f);
+
+                canvas.PushState();
+                // Body center
+                canvas.State.ColorTint = ColorRgba.Blue.WithAlpha(200);
+                Vector2 min = new Vector2(points.Min(x => x.X), points.Min(x => x.Y));
+                Vector2 max = new Vector2(points.Max(x => x.X), points.Max(x => x.Y));
+                float realX = min.X + (max.X - min.X) * .5f;
+                float realY = min.Y + (max.Y - min.Y) * .5f;
+                canvas.FillCircle(realX, realY, lineWidth * 4f);
+                canvas.DrawCircle(realX, realY, lineWidth * 6f);
+                canvas.PopState();
+
+                canvas.PopState();
             }
 
             if (camera3D != null)

@@ -59,10 +59,19 @@ namespace YMR.ComplexBody.Editor
                     DisplayStyle = ToolStripItemDisplayStyle.Text,
                     AutoToolTip = true
                 };
+                ToolStripButton btnCenterInObj = new ToolStripButton()
+                {
+                    Tag = "Center in Object",
+                    Text = "Center in Object",
+                    DisplayStyle = ToolStripItemDisplayStyle.Text,
+                    AutoToolTip = true
+                };
                 btnInvHor.Click += BtnInvHor_Click;
                 btnInvVert.Click += BtnInvVert_Click;
+                btnCenterInObj.Click += BtnCenterInObj_Click;
                 toolstrip.Items.Add(btnInvHor);
                 toolstrip.Items.Add(btnInvVert);
+                toolstrip.Items.Add(btnCenterInObj);
 
                 this.View.Controls.Add(toolstrip);
                 this.View.Controls.SetChildIndex(toolstrip, this.View.Controls.IndexOf(this.View.ToolbarCamera));
@@ -76,6 +85,24 @@ namespace YMR.ComplexBody.Editor
             // Register events
             DualityEditorApp.SelectionChanged += this.DualityEditorApp_SelectionChanged;
             DualityEditorApp.ObjectPropertyChanged += this.DualityEditorApp_ObjectPropertyChanged;
+        }
+
+        private void BtnCenterInObj_Click(object sender, EventArgs e)
+        {
+            Transform tr = selectedBody.GameObj.GetComponent<Transform>();
+            List<Vector2> points = selectedBody.Points;
+            Vector2 min = new Vector2(points.Min(x => x.X), points.Min(x => x.Y));
+            Vector2 max = new Vector2(points.Max(x => x.X), points.Max(x => x.Y));
+            float diffX = tr.Pos.X - (min.X + (max.X - min.X) * .5f);
+            float diffY = tr.Pos.Y - (min.Y + (max.Y - min.Y) * .5f);
+
+            int t = points.Count;
+            for (int i = 0; i < t; i++)
+            {
+                points[i] = new Vector2(points[i].X + diffX, points[i].Y + diffY);
+            }
+
+            selectedBody.UpdateBody(true);
         }
 
         private void BtnInvVert_Click(object sender, EventArgs e)
