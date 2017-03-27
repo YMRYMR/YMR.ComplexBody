@@ -24,10 +24,29 @@ namespace YMR.ComplexBody.Core
     [RequiredComponent(typeof(RigidBody))]
     public class ComplexBody : Renderer, ICmpInitializable, ICmpUpdatable, ICmpEditorUpdatable
     {
+        /// <summary>
+        /// Not used yet
+        /// </summary>
         public enum BodyShapeMode
         {
+            /// <summary>
+            /// Ear cutting triangulation
+            /// </summary>
             Triangulation = 0,
-            Border = 1
+            /// <summary>
+            /// Border Shapes
+            /// </summary>
+            Border = 1,
+            /// <summary>
+            /// Hollow body with shapes in the border
+            /// </summary>
+            Path = 2
+        }
+
+        public enum BoderMode
+        {
+            Inside = 0,
+            Outside = 1
         }
 
         #region Private Members
@@ -40,27 +59,6 @@ namespace YMR.ComplexBody.Core
         private int selectedPointId = -1;
         [DontSerialize]
         private bool working = false;
-
-        private List<Vector2> points = new List<Vector2>()
-        {
-            new Vector2(0, 0), 
-            new Vector2(100, 0), 
-            new Vector2(100, 100), 
-        };
-        private bool showBorderMaterial = true;
-        private bool showBorderGeometry = true;
-        private bool showBorderDummies = false;
-        private bool showPolygons = true;
-        private bool showTexture = true;
-        private bool updatableUsingMouse = true;
-        private ContentRef<Material> sharedMaterial = Material.Checkerboard;
-        private ContentRef<Material> borderMaterial = Material.Checkerboard;
-        private float borderWidth = 2;
-        private float lineWidth = 2;
-        private ColorRgba polygonColor = new ColorRgba(255, 0, 0, 200);
-        private ColorRgba borderGeometryColor = new ColorRgba(0, 255, 0, 200);
-        private bool scaleTexture = false;
-        private BodyShapeMode collisionType = BodyShapeMode.Triangulation;
 
         [DontSerialize]
         private bool ctrlPressed = false;
@@ -77,6 +75,29 @@ namespace YMR.ComplexBody.Core
         [DontSerialize]
         private bool isSelected = false;
 
+        private List<Vector2> points = new List<Vector2>()
+        {
+            new Vector2(0, 0), 
+            new Vector2(100, 0), 
+            new Vector2(100, 100), 
+        };
+        private bool showBorderMaterial = true;
+        private bool showBorderGeometry = true;
+        private bool showBorderDummies = false;
+        private bool showPolygons = true;
+        private bool showMaterial = true;
+        private bool updatableUsingMouse = true;
+        private ContentRef<Material> sharedMaterial = Material.Checkerboard;
+        private ContentRef<Material> borderMaterial = Material.Checkerboard;
+        private float borderWidth = 2;
+        private float lineWidth = 2;
+        private ColorRgba polygonColor = new ColorRgba(255, 0, 0, 200);
+        private ColorRgba borderGeometryColor = new ColorRgba(0, 255, 0, 200);
+        private bool scaleTexture = false;
+        private BodyShapeMode collisionType = BodyShapeMode.Triangulation;
+        private BoderMode borderType = BoderMode.Inside;
+        private bool use3D = false;
+
         #endregion
 
         #region Public Members
@@ -89,7 +110,7 @@ namespace YMR.ComplexBody.Core
         public bool ShowBorderGeometry { get { return showBorderGeometry; } set { showBorderGeometry = value; } }
         public bool ShowBorderDummies { get { return showBorderDummies; } set { showBorderDummies = value; } }
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; } }
-        public bool ShowTexture { get { return showTexture; } set { showTexture = value; } }
+        public bool ShowMaterial { get { return showMaterial; } set { showMaterial = value; } }
         public bool UpdatableUsingMouse { get { return updatableUsingMouse; } set { updatableUsingMouse = value; } }
         public ContentRef<Material> SharedMaterial { get { return sharedMaterial; } set { sharedMaterial = value; } }
         public ContentRef<Material> BorderMaterial { get { return borderMaterial; } set { borderMaterial = value; } }
@@ -100,6 +121,8 @@ namespace YMR.ComplexBody.Core
         public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; } }
         public bool ScaleTexture { get { return scaleTexture; } set { scaleTexture = value; } }
         public BodyShapeMode ShapeMode { get { return collisionType; } set { collisionType = value; } }
+        public BoderMode BorderType { get { return borderType; } set { borderType = value; } }
+        public bool Use3D { get { return use3D; } set { use3D = value; } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool CtrlPressed { get { return ctrlPressed; } set { ctrlPressed = value; } }
@@ -122,17 +145,33 @@ namespace YMR.ComplexBody.Core
 
         private void TransformPoint(Transform trans, ref float x, ref float y)
         {
-            TransformPoint(trans, ref x, ref y, true, true, true);
+            TransformPoint(trans, ref x, ref y, true, true, true, false);
+        }
+        private void TransformPoint(Transform trans, ref float x, ref float y, bool invertPos)
+        {
+            TransformPoint(trans, ref x, ref y, true, true, true, invertPos);
         }
         private void TransformPoint(Transform trans, ref float x, ref float y, bool applyPos, bool applyAngle, bool applyScale)
+        {
+            TransformPoint(trans, ref x, ref y, applyPos, applyAngle, applyScale, false);
+        }
+        private void TransformPoint(Transform trans, ref float x, ref float y, bool applyPos, bool applyAngle, bool applyScale, bool invertPos)
         {
             float angle = applyAngle ? trans.Angle : 0;
             float scale = applyScale ? trans.Scale : 1;
             MathF.TransformCoord(ref x, ref y, angle, scale);
             if (applyPos)
             {
-                x += trans.Pos.X;
-                y += trans.Pos.Y;
+                if (invertPos)
+                {
+                    x -= trans.Pos.X;
+                    y -= trans.Pos.Y;
+                }
+                else
+                {
+                    x += trans.Pos.X;
+                    y += trans.Pos.Y;
+                }
             }
         }
 
@@ -246,7 +285,7 @@ namespace YMR.ComplexBody.Core
             if (rb != null && points.Count > 2)
             {
                 // Texture
-                if (showTexture)
+                if (showMaterial)
                 {
                     IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
                     
@@ -365,7 +404,9 @@ namespace YMR.ComplexBody.Core
                         Vector2[] borderPoly = new Vector2[4];
                         borderPoly[0] = ordererdTriangle[0];
                         borderPoly[1] = ordererdTriangle[1];
-                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) - MathF.RadAngle90;
+                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
+                        if (borderType == BoderMode.Inside) angle01 -= MathF.RadAngle90;
+                        else angle01 += MathF.RadAngle90;
 
                         float halfDistance = MathF.Distance(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) * .5f;
                         Vector2 outerCenterPoint = new Vector2(borderPoly[0].X + halfDistance * MathF.Cos(angle01), borderPoly[0].Y + halfDistance * MathF.Sin(angle01));
@@ -410,36 +451,6 @@ namespace YMR.ComplexBody.Core
                     if (selectedPointId == -1) selectedPointId = i;
                 }
 
-                //// Vertices
-                //if (showPoints)
-                //{
-                //    /*canvas.PushState();
-                //    canvas.State.TextFont = Font.GenericMonospace8;
-                //    canvas.State.ColorTint = i == selectedPointId ? new ColorRgba(0, 0, 0, 255) : new ColorRgba(255, 255, 255, 255);
-                //    canvas.DrawText(i.ToString(), transformedX, transformedY, trans.Pos.Z - .01f, Alignment.Center, false);
-                //    canvas.PopState();*/
-
-                //    if (i == selectedPointId)
-                //    {
-                //        canvas.PushState();
-                //        canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
-                //        if (ctrlPressed) canvas.FillRect(transformedX - 10, transformedY - 10, 20, 20);
-                //        else canvas.FillCircle(transformedX, transformedY, pointPos.Z / 50);
-                //        canvas.PopState();
-                //    }
-                //    else
-                //    {
-                //        canvas.PushState();
-                //        canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
-                //        canvas.FillCircle(transformedX, transformedY, (pointPos.Z / 50) + 1);
-                //        canvas.PopState();
-                //        canvas.PushState();
-                //        canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
-                //        canvas.FillCircle(transformedX, transformedY, pointPos.Z / 50);
-                //        canvas.PopState();
-                //    }
-                //}
-
                 // Border
                 if (showBorderMaterial || showBorderGeometry || showBorderDummies || isSelected)
                 {
@@ -482,7 +493,7 @@ namespace YMR.ComplexBody.Core
                                 tempInnerLinePointsA[0] = innerLinePointsA[i - 1];
                                 tempInnerLinePointsB[0] = innerLinePointsB[i - 1];
                             }
-                            else
+                            else // First point
                             {
                                 tempInnerLinePointsA[0] = innerLinePointsA[t - 1];
                                 tempInnerLinePointsB[0] = innerLinePointsB[t - 1];
@@ -501,8 +512,8 @@ namespace YMR.ComplexBody.Core
                             tempInnerLinePointsA[2] = innerLinePointsA[0];
                             tempInnerLinePointsB[2] = innerLinePointsB[0];
                         }
-                        // Inner point A
                         float crossX, crossY;
+                        // Inner point A
                         MathF.LinesCross(tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y,
                                          tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
                                          tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
@@ -521,6 +532,14 @@ namespace YMR.ComplexBody.Core
                         //                          MathF.Min(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y),
                         //                          MathF.Max(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
                         //                          MathF.Max(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y));
+
+                        if (!use3D)
+                        {
+                            //TransformPoint(trans, ref borderPoly[0].X, ref borderPoly[0].Y);
+                            //TransformPoint(trans, ref borderPoly[1].X, ref borderPoly[1].Y);
+                            TransformPoint(trans, ref borderPoly[2].X, ref borderPoly[2].Y, true);
+                            TransformPoint(trans, ref borderPoly[3].X, ref borderPoly[3].Y, true);
+                        }
 
                         if (showBorderMaterial)
                         {
@@ -551,7 +570,7 @@ namespace YMR.ComplexBody.Core
                             canvas.FillThickLine(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y, lineWidth);
                             canvas.FillCircle(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, lineWidth * 2f);
                             canvas.FillCircle(tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y, lineWidth * 2f);
-                            canvas.FillCircle(borderPoly[2].X, borderPoly[2].Y, lineWidth * 2f);
+
                             canvas.PopState();
                         }
 
@@ -573,7 +592,7 @@ namespace YMR.ComplexBody.Core
                         // Vertices
                         if (isSelected)
                         {
-                            //if(!showBorderGeometry) TransformPoint(trans, ref borderPoly[1].X, ref borderPoly[1].Y);
+                            if(!showBorderGeometry) TransformPoint(trans, ref borderPoly[1].X, ref borderPoly[1].Y);
 
                             if (i == selectedPointId)
                             {
@@ -592,12 +611,13 @@ namespace YMR.ComplexBody.Core
                                 canvas.State.TransformScale = scale;
                                 canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
                                 canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f + 1f);
-
-                                canvas.PushState();
-                                canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
-                                canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f);
                                 canvas.PopState();
 
+                                canvas.PushState();
+                                canvas.State.TransformAngle = angle;
+                                canvas.State.TransformScale = scale;
+                                canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
+                                canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f);
                                 canvas.PopState();
                             }
 
@@ -682,36 +702,6 @@ namespace YMR.ComplexBody.Core
                 canvas.DrawLine(transformedMouseX - 10, transformedMouseY, transformedMouseX + 10, transformedMouseY);
                 canvas.DrawLine(transformedMouseX, transformedMouseY - 10, transformedMouseX, transformedMouseY + 10);
                 canvas.PopState();
-            }
-        }
-
-        Vector2 LineIntersectionPoint(Vector2 ps1, Vector2 pe1, Vector2 ps2, Vector2 pe2)
-        {
-            try
-            {
-                // Get A,B,C of first line - points : ps1 to pe1
-                float A1 = pe1.Y - ps1.Y;
-                float B1 = ps1.X - pe1.X;
-                float C1 = A1 * ps1.X + B1 * ps1.Y;
-
-                // Get A,B,C of second line - points : ps2 to pe2
-                float A2 = pe2.Y - ps2.Y;
-                float B2 = ps2.X - pe2.X;
-                float C2 = A2 * ps2.X + B2 * ps2.Y;
-
-                // Get delta and check if the lines are parallel
-                float delta = A1 * B2 - A2 * B1;
-                if (delta == 0) return Vector2.Zero; //throw new System.Exception("Lines are parallel");
-
-                // now return the Vector2 intersection point
-                return new Vector2(
-                    (B2 * C1 - B1 * C2) / delta,
-                    (A1 * C2 - A2 * C1) / delta
-                );
-            }
-            catch
-            {
-                return Vector2.Zero;
             }
         }
 
@@ -851,7 +841,7 @@ namespace YMR.ComplexBody.Core
             target.scaleTexture = this.scaleTexture;
             target.showBorderMaterial = this.showBorderMaterial;
             target.showPolygons = this.showPolygons;
-            target.showTexture = this.showTexture;
+            target.showMaterial = this.showMaterial;
             target.updatableUsingMouse = this.updatableUsingMouse;
         }
     }
