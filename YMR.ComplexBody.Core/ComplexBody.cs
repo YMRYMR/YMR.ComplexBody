@@ -36,11 +36,7 @@ namespace YMR.ComplexBody.Core
             /// <summary>
             /// Border Shapes
             /// </summary>
-            Border = 1,
-            /// <summary>
-            /// Hollow body with shapes in the border
-            /// </summary>
-            Path = 2
+            Border = 1
         }
 
         public enum BoderMode
@@ -100,6 +96,11 @@ namespace YMR.ComplexBody.Core
                 }
                 AllPoints = allPoints;
             }
+
+            public BorderInfo Clone()
+            {
+                return new BorderInfo() { AllPoints = this.AllPoints };
+            }
         }
 
         #region Private Members
@@ -127,6 +128,12 @@ namespace YMR.ComplexBody.Core
         private float mouseY;
         [DontSerialize]
         private bool isSelected = false;
+        [DontSerialize]
+        Transform trans = null;
+        [DontSerialize]
+        RigidBody rb = null;
+        [DontSerialize]
+        BorderInfo[] borderInfo = null;
 
         private List<Vector2> points = new List<Vector2>()
         {
@@ -147,9 +154,8 @@ namespace YMR.ComplexBody.Core
         private ColorRgba polygonColor = new ColorRgba(255, 0, 0, 200);
         private ColorRgba borderGeometryColor = new ColorRgba(0, 255, 0, 200);
         private bool scaleTexture = false;
-        private BodyShapeMode collisionType = BodyShapeMode.Triangulation;
+        private BodyShapeMode shapeMode = BodyShapeMode.Triangulation;
         private BoderMode borderType = BoderMode.Inside;
-        private bool local3D = false;
         private Camera camera3D = null;
 
         #endregion
@@ -169,19 +175,15 @@ namespace YMR.ComplexBody.Core
         public ContentRef<Material> SharedMaterial { get { return sharedMaterial; } set { sharedMaterial = value; } }
         public ContentRef<Material> BorderMaterial { get { return borderMaterial; } set { borderMaterial = value; } }
         public override float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
-        public float BorderWidth { get { return borderWidth; } set { borderWidth = value; } }
+        public float BorderWidth { get { return borderWidth; } set { borderWidth = value; UpdateShapes(true); } }
         public float LineWidth { get { return lineWidth; } set { lineWidth = value; } }
         public ColorRgba PolygonColor { get { return polygonColor; } set { polygonColor = value; } }
         public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; } }
         public bool ScaleTexture { get { return scaleTexture; } set { scaleTexture = value; } }
-        public BodyShapeMode ShapeMode { get { return collisionType; } set { collisionType = value; } }
-        public BoderMode BorderType { get { return borderType; } set { borderType = value; } }
+        public BodyShapeMode ShapeMode { get { return shapeMode; } set { shapeMode = value; UpdateShapes(true); } }
+        public BoderMode BorderType { get { return borderType; } set { borderType = value; UpdateShapes(true); } }
         /// <summary>
-        /// If set, applies a 3D like effect. If Camera3D is set, this property is ignored.
-        /// </summary>
-        public bool Local3D { get { return local3D; } set { local3D = value; } }
-        /// <summary>
-        /// If set, the 3D effect will use the camera as center point. Overrides the Local3D porperty.
+        /// If set, the 3D effect will use the camera as center point.
         /// </summary>
         public Camera Camera3D { get { return camera3D; } set { camera3D = value; } }
 
@@ -262,24 +264,112 @@ namespace YMR.ComplexBody.Core
 
         public void UpdateShapes()
         {
+            UpdateShapes(false);
+        }
+        public void UpdateShapes(bool force)
+        {
             try
             {
-                Transform trans = this.GameObj.GetComponent<Transform>();
-                RigidBody rb = this.GameObj.GetComponent<RigidBody>();
-
-                int nLastVertices = lastVertices.Count;
-                int nVertices = points.Count;
-                if (nVertices < 3)
+                // Border
+                int t = points.Count;
+                for (int i = 0; i < t; i++)
                 {
-                    rb.ClearShapes();
+                    if (showBorderMaterial || showBorderGeometry || showBorderDummies || isSelected)
+                    {
+                        IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
 
-                    return;
+                        Rect boundingRect = points.BoundingBox();
+
+                        float brW = scaleTexture ? boundingRect.W : this.borderMaterial.Res.MainTexture.Res.Size.X;
+                        float brH = scaleTexture ? boundingRect.H : this.borderMaterial.Res.MainTexture.Res.Size.Y;
+                        float ratioW = brH / brW;
+                        float ratioH = brW / brH;
+
+                        Vector2 p0, p1;
+                        p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
+                        if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
+                        else p1 = new Vector2(points[0].X, points[0].Y);
+                        
+                        if (borderInfo == null) borderInfo = new BorderInfo[t];
+                        borderInfo[i].outerA = p1;
+                        borderInfo[i].outerB = p0;
+                        float angle01 = MathF.Angle(p0.X, p0.Y, p1.X, p1.Y);
+                        angle01 += borderType == BoderMode.Inside ? MathF.RadAngle90 : -MathF.RadAngle90;
+
+                        borderInfo[i].distanceAB = MathF.Distance(p0.X, p0.Y, p1.X, p1.Y);
+                        float halfDistance = borderInfo[i].distanceAB * .5f;
+                        Vector2 outerCenterPoint = new Vector2(p0.X + halfDistance * MathF.Cos(angle01), p0.Y + halfDistance * MathF.Sin(angle01));
+                        Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
+
+                        borderInfo[i].dummyInnerA = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
+                        borderInfo[i].dummyInnerB = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
+
+                        borderInfo[i].outerCenter = outerCenterPoint;
+                        borderInfo[i].innerCenter = innerCenterPoint;
+
+                        borderInfo[i].distanceAA = MathF.Distance(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, borderInfo[i].dummyInnerA.X, borderInfo[i].dummyInnerA.Y);
+                        borderInfo[i].distanceBB = MathF.Distance(borderInfo[i].outerB.X, borderInfo[i].outerB.Y, borderInfo[i].dummyInnerB.X, borderInfo[i].dummyInnerB.Y);
+                        borderInfo[i].distanceCenterCenter = MathF.Distance(borderInfo[i].outerCenter.X, borderInfo[i].outerCenter.Y, borderInfo[i].innerCenter.X, borderInfo[i].innerCenter.Y);
+                    }
+                }
+                for (int i = 0; i < t; i++)
+                {
+                    Vector2[] tempInnerLinePointsA = new Vector2[3];
+                    Vector2[] tempInnerLinePointsB = new Vector2[3];
+
+                    if (i < t - 1)
+                    {
+                        if (i > 0)
+                        {
+                            tempInnerLinePointsA[0] = borderInfo[i - 1].dummyInnerA;
+                            tempInnerLinePointsB[0] = borderInfo[i - 1].dummyInnerB;
+                        }
+                        else // First point
+                        {
+                            tempInnerLinePointsA[0] = borderInfo[t - 1].dummyInnerA;
+                            tempInnerLinePointsB[0] = borderInfo[t - 1].dummyInnerB;
+                        }
+                        tempInnerLinePointsA[2] = borderInfo[i + 1].dummyInnerA;
+                        tempInnerLinePointsB[2] = borderInfo[i + 1].dummyInnerB;
+                    }
+                    else // Last point
+                    {
+                        tempInnerLinePointsA[0] = borderInfo[i - 1].dummyInnerA;
+                        tempInnerLinePointsB[0] = borderInfo[i - 1].dummyInnerB;
+                        tempInnerLinePointsA[2] = borderInfo[0].dummyInnerA;
+                        tempInnerLinePointsB[2] = borderInfo[0].dummyInnerB;
+                    }
+                    tempInnerLinePointsA[1] = borderInfo[i].dummyInnerA;
+                    tempInnerLinePointsB[1] = borderInfo[i].dummyInnerB;
+
+                    float crossX, crossY;
+                    // Inner point A
+                    MathF.LinesCross(tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y,
+                                     tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
+                                     tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
+                                     tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                     out crossX, out crossY, true);
+                    borderInfo[i].innerA = new Vector2(crossX, crossY);
+                    // Inner point B
+                    MathF.LinesCross(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
+                                     tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                     tempInnerLinePointsA[2].X, tempInnerLinePointsA[2].Y,
+                                     tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
+                                     out crossX, out crossY, true);
+                    borderInfo[i].innerB = new Vector2(crossX, crossY);
                 }
 
-                bool changed = nLastVertices != nVertices;
+                // Rigid Body Shapes
+                if (t < 3)
+                {
+                    rb.ClearShapes();
+                    return;
+                }
+                int nLastVertices = lastVertices.Count;
+                bool changed = force || nLastVertices != t;
                 if (!changed)
                 {
-                    for (int i = 0; i < nVertices; i++)
+                    for (int i = 0; i < t; i++)
                     {
                         if (lastVertices[i].X != points[i].X || lastVertices[i].Y != points[i].Y)
                         {
@@ -289,13 +379,23 @@ namespace YMR.ComplexBody.Core
                         }
                     }
                 }
+                if (!changed) return;
+                rb.ClearShapes();
 
-                if (changed)
+                if (shapeMode == BodyShapeMode.Border)
                 {
-                    CPoint2D[] vertices = new CPoint2D[nVertices];
-                    for (int i = 0; i < nVertices; i++)
+                    foreach (BorderInfo bi in borderInfo)
                     {
-                        if (nLastVertices != nVertices || vertices[i] == null || vertices[i].X != points[i].X || vertices[i].Y != points[i].Y)
+                        PolyShapeInfo shape = new PolyShapeInfo() { Vertices = bi.Polygon };
+                        rb.AddShape(shape);
+                    }
+                }
+                else // Ear cutting triangulation
+                {
+                    CPoint2D[] vertices = new CPoint2D[t];
+                    for (int i = 0; i < t; i++)
+                    {
+                        if (nLastVertices != t || vertices[i] == null || vertices[i].X != points[i].X || vertices[i].Y != points[i].Y)
                         {
                             CPoint2D v = new CPoint2D(points[i].X, points[i].Y);
                             vertices[i] = v;
@@ -304,8 +404,6 @@ namespace YMR.ComplexBody.Core
                     }
                     CPolygonShape cutPolygon = new CPolygonShape(vertices);
                     cutPolygon.CutEar();
-
-                    rb.ClearShapes();
 
                     if (cutPolygon != null)
                     {
@@ -318,9 +416,7 @@ namespace YMR.ComplexBody.Core
                                 tempArray[j].X = (int)cutPolygon.Polygons(i)[j].X;
                                 tempArray[j].Y = (int)cutPolygon.Polygons(i)[j].Y;
                             }
-
-                            PolyShapeInfo shape = new PolyShapeInfo() { Vertices = tempArray };
-
+                            PolyShapeInfo shape = new PolyShapeInfo() { Vertices = tempArray, IsSensor = shapeMode != BodyShapeMode.Triangulation };
                             rb.AddShape(shape);
                         }
                     }
@@ -331,7 +427,6 @@ namespace YMR.ComplexBody.Core
 
         public override void Draw(IDrawDevice device)
         {
-            Transform trans = this.GameObj.GetComponent<Transform>();
             Canvas canvas = new Canvas(device, this.vertexBuffer);
 
             Draw(canvas, trans.Angle, new Vector2(trans.Scale, trans.Scale));
@@ -339,8 +434,6 @@ namespace YMR.ComplexBody.Core
         public void Draw(Canvas canvas, float angle, Vector2 scale)
         {
             IDrawDevice device = canvas.DrawDevice;
-            Transform trans = this.GameObj.GetComponent<Transform>();
-            RigidBody rb = this.GameObj.GetComponent<RigidBody>();
 
             if (mustBeUpdated)
             {
@@ -423,137 +516,9 @@ namespace YMR.ComplexBody.Core
                         }
 
                         canvas.FillPolygonOutline(vs, lineWidth, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
-                        //canvas.DrawPolygon(vs, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
                     }
                     canvas.PopState();
                 }
-            }
-
-
-            // Border
-            BorderInfo[] borderInfo = new BorderInfo[t];
-            for (int i = 0; i < t; i++)
-            {
-                if (showBorderMaterial || showBorderGeometry || showBorderDummies || isSelected)
-                {
-                    IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
-
-                    Rect boundingRect = points.BoundingBox();
-
-                    float brW = scaleTexture ? boundingRect.W : this.borderMaterial.Res.MainTexture.Res.Size.X;
-                    float brH = scaleTexture ? boundingRect.H : this.borderMaterial.Res.MainTexture.Res.Size.Y;
-                    float ratioW = brH / brW;
-                    float ratioH = brW / brH;
-
-                    Vector2 p0, p1;
-                    p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
-                    if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
-                    else p1 = new Vector2(points[0].X, points[0].Y);
-
-                    Vector2[] ordererdTriangle = new Vector2[3];
-                    bool found = false;
-                    foreach (PolyShapeInfo shape in shapes)
-                    {
-                        int tShapes = shape.Vertices.Count();
-                        int matchingPoints = 0;
-                        for (int j = 0; j < tShapes; j++)
-                        {
-                            if ((MathF.Abs(shape.Vertices[j].X - p0.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p0.Y) <= 1) ||
-                                (MathF.Abs(shape.Vertices[j].X - p1.X) <= 1 && MathF.Abs(shape.Vertices[j].Y - p1.Y) <= 1))
-                            {
-                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
-                                matchingPoints++;
-                            }
-                            else
-                            {
-                                ordererdTriangle[matchingPoints] = shape.Vertices[j];
-                            }
-                        }
-                        if (matchingPoints == 2)
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found)
-                    {
-                        borderInfo[i].outerA = ordererdTriangle[0];
-                        borderInfo[i].outerB = ordererdTriangle[1];
-                        Vector2[] borderPoly = new Vector2[4];
-                        borderPoly[0] = ordererdTriangle[0];
-                        borderPoly[1] = ordererdTriangle[1];
-                        float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
-                        angle01 += borderType == BoderMode.Inside ? -MathF.RadAngle90 : MathF.RadAngle90;
-
-                        borderInfo[i].distanceAB = MathF.Distance(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
-                        float halfDistance = borderInfo[i].distanceAB * .5f;
-                        Vector2 outerCenterPoint = new Vector2(borderPoly[0].X + halfDistance * MathF.Cos(angle01), borderPoly[0].Y + halfDistance * MathF.Sin(angle01));
-                        Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
-
-                        //if (camera3D != null)
-                        //{
-                        //    Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
-                        //    innerCenterPoint = new Vector2(innerCenterPoint.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f), 
-                        //                                   innerCenterPoint.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
-                        //}
-
-                        borderInfo[i].dummyInnerA = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
-                        borderInfo[i].dummyInnerB = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
-
-                        borderInfo[i].outerCenter = outerCenterPoint;
-                        borderInfo[i].innerCenter = innerCenterPoint;
-
-                        borderInfo[i].distanceAA = MathF.Distance(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, borderInfo[i].dummyInnerA.X, borderInfo[i].dummyInnerA.Y);
-                        borderInfo[i].distanceBB = MathF.Distance(borderInfo[i].outerB.X, borderInfo[i].outerB.Y, borderInfo[i].dummyInnerB.X, borderInfo[i].dummyInnerB.Y);
-                        borderInfo[i].distanceCenterCenter = MathF.Distance(borderInfo[i].outerCenter.X, borderInfo[i].outerCenter.Y, borderInfo[i].innerCenter.X, borderInfo[i].innerCenter.Y);
-                    }
-                }
-            }
-            for(int i = 0; i < t; i++)
-            {
-                Vector2[] tempInnerLinePointsA = new Vector2[3];
-                Vector2[] tempInnerLinePointsB = new Vector2[3];
-
-                if (i < t - 1)
-                {
-                    if (i > 0)
-                    {
-                        tempInnerLinePointsA[0] = borderInfo[i - 1].dummyInnerA;
-                        tempInnerLinePointsB[0] = borderInfo[i - 1].dummyInnerB;
-                    }
-                    else // First point
-                    {
-                        tempInnerLinePointsA[0] = borderInfo[t - 1].dummyInnerA;
-                        tempInnerLinePointsB[0] = borderInfo[t - 1].dummyInnerB;
-                    }
-                    tempInnerLinePointsA[2] = borderInfo[i + 1].dummyInnerA;
-                    tempInnerLinePointsB[2] = borderInfo[i + 1].dummyInnerB;
-                }
-                else // Last point
-                {
-                    tempInnerLinePointsA[0] = borderInfo[i - 1].dummyInnerA;
-                    tempInnerLinePointsB[0] = borderInfo[i - 1].dummyInnerB;
-                    tempInnerLinePointsA[2] = borderInfo[0].dummyInnerA;
-                    tempInnerLinePointsB[2] = borderInfo[0].dummyInnerB;
-                }
-                tempInnerLinePointsA[1] = borderInfo[i].dummyInnerA;
-                tempInnerLinePointsB[1] = borderInfo[i].dummyInnerB;
-
-                float crossX, crossY;
-                // Inner point A
-                MathF.LinesCross(tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y,
-                                 tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
-                                 tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
-                                 tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
-                                 out crossX, out crossY, true);
-                borderInfo[i].innerA = new Vector2(crossX, crossY);
-                // Inner point B
-                MathF.LinesCross(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
-                                 tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
-                                 tempInnerLinePointsA[2].X, tempInnerLinePointsA[2].Y,
-                                 tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
-                                 out crossX, out crossY, true);
-                borderInfo[i].innerB = new Vector2(crossX, crossY);
             }
 
             for (int i = 0; i < t; i++)
@@ -607,8 +572,29 @@ namespace YMR.ComplexBody.Core
                     bool found = true;
                     if (found)
                     {
-                        Vector2[] borderPoly = borderInfo[i].Polygon;
-                        borderInfo[i].Transform(trans);
+                        BorderInfo bi = borderInfo[i].Clone();
+
+                        if (camera3D != null)
+                        {
+                            Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
+                            if (borderType == BoderMode.Inside)
+                            {
+                                bi.innerA = new Vector2(bi.innerA.X - (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
+                                                        bi.innerA.Y - (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
+                                bi.innerB = new Vector2(bi.innerB.X - (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
+                                                        bi.innerB.Y - (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
+                            }
+                            else // Outside
+                            {
+                                bi.innerA = new Vector2(bi.innerA.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
+                                                        bi.innerA.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
+                                bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
+                                                        bi.innerB.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
+                            }
+                        }
+
+                        Vector2[] borderPoly = bi.Polygon;
+                        bi.Transform(trans);
 
                         //if (!local3D || camera3D != null)
                         //{
@@ -618,39 +604,37 @@ namespace YMR.ComplexBody.Core
                         //    TransformPoint(trans, ref borderPoly[3].X, ref borderPoly[3].Y, true);
                         //}
 
-                        //if (showBorderMaterial)
-                        //{
-                        //    Rect localRect = AABB(borderPoly);
+                        if (showBorderMaterial)
+                        {
+                            Rect localRect = AABB(borderPoly);
 
-                        //    //float ang = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
-
-                        //    canvas.PushState();
-                        //    canvas.State.SetMaterial(this.borderMaterial);
-                        //    canvas.State.TransformAngle = angle;
-                        //    canvas.State.TransformScale = scale;
-                        //    canvas.State.TextureCoordinateRect = new Rect(
-                        //        (1 / brW) * localRect.X,
-                        //        (1 / brH) * localRect.Y,
-                        //        (1 / brW) * localRect.W,
-                        //        (1 / brH) * localRect.H
-                        //    );
-                        //    canvas.FillPolygon(borderPoly, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
-                        //    canvas.PopState();
-                        //}
+                            canvas.PushState();
+                            canvas.State.SetMaterial(this.borderMaterial);
+                            canvas.State.TransformAngle = angle;
+                            canvas.State.TransformScale = scale;
+                            canvas.State.TextureCoordinateRect = new Rect(
+                                (1 / brW) * localRect.X,
+                                (1 / brH) * localRect.Y,
+                                (1 / brW) * localRect.W,
+                                (1 / brH) * localRect.H
+                            );
+                            canvas.FillPolygon(borderPoly, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+                            canvas.PopState();
+                        }
 
                         if (showBorderDummies)
                         {
                             canvas.PushState();
                             canvas.State.ColorTint = ColorRgba.Blue.WithAlpha(200);
                             canvas.FillPolygonOutline(orderedTriangle, lineWidth, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
-                            canvas.FillCircle(borderInfo[i].outerCenter.X, borderInfo[i].outerCenter.Y, lineWidth * 2f);
-                            canvas.FillCircle(borderInfo[i].innerCenter.X, borderInfo[i].innerCenter.Y, lineWidth * 2f);
-                            canvas.FillThickLine(borderInfo[i].outerCenter.X, borderInfo[i].outerCenter.Y, borderInfo[i].innerCenter.X, borderInfo[i].innerCenter.Y, lineWidth);
-                            canvas.FillThickLine(borderInfo[i].dummyInnerA.X, borderInfo[i].dummyInnerA.Y, borderInfo[i].dummyInnerB.X, borderInfo[i].dummyInnerB.Y, lineWidth);
-                            canvas.FillCircle(borderInfo[i].dummyInnerA.X, borderInfo[i].dummyInnerA.Y, lineWidth * 2f);
-                            canvas.FillCircle(borderInfo[i].dummyInnerB.X, borderInfo[i].dummyInnerB.Y, lineWidth * 2f);
-                            canvas.FillCircle(borderInfo[i].innerA.X, borderInfo[i].innerA.Y, lineWidth * 2f);
-                            canvas.FillCircle(borderInfo[i].innerB.X, borderInfo[i].innerB.Y, lineWidth * 2f);
+                            canvas.FillCircle(bi.outerCenter.X, bi.outerCenter.Y, lineWidth * 2f);
+                            canvas.FillCircle(bi.innerCenter.X, bi.innerCenter.Y, lineWidth * 2f);
+                            canvas.FillThickLine(bi.outerCenter.X, bi.outerCenter.Y, bi.innerCenter.X, bi.innerCenter.Y, lineWidth);
+                            canvas.FillThickLine(bi.dummyInnerA.X, bi.dummyInnerA.Y, bi.dummyInnerB.X, bi.dummyInnerB.Y, lineWidth);
+                            canvas.FillCircle(bi.dummyInnerA.X, bi.dummyInnerA.Y, lineWidth * 2f);
+                            canvas.FillCircle(bi.dummyInnerB.X, bi.dummyInnerB.Y, lineWidth * 2f);
+                            canvas.FillCircle(bi.innerA.X, bi.innerA.Y, lineWidth * 2f);
+                            canvas.FillCircle(bi.innerB.X, bi.innerB.Y, lineWidth * 2f);
 
                             canvas.PopState();
                         }
@@ -670,46 +654,46 @@ namespace YMR.ComplexBody.Core
                             canvas.PopState();
                         }
 
-                        //// Vertices
-                        //if (isSelected)
-                        //{
-                        //    if(!showBorderGeometry) TransformPoint(trans, ref borderPoly[1].X, ref borderPoly[1].Y);
+                        // Vertices
+                        if (isSelected)
+                        {
+                            if (!showBorderGeometry) TransformPoint(trans, ref borderPoly[1].X, ref borderPoly[1].Y);
 
-                        //    if (i == selectedPointId)
-                        //    {
-                        //        canvas.PushState();
-                        //        canvas.State.TransformAngle = angle;
-                        //        canvas.State.TransformScale = scale;
-                        //        canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
-                        //        if (ctrlPressed) canvas.FillRect(borderPoly[1].X - lineWidth * 4f, borderPoly[1].Y - lineWidth * 4f, lineWidth * 8f, lineWidth * 8f);
-                        //        else canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f);
-                        //        canvas.PopState();
-                        //    }
-                        //    else
-                        //    {
-                        //        canvas.PushState();
-                        //        canvas.State.TransformAngle = angle;
-                        //        canvas.State.TransformScale = scale;
-                        //        canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
-                        //        canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f + 1f);
-                        //        canvas.PopState();
+                            if (i == selectedPointId)
+                            {
+                                canvas.PushState();
+                                canvas.State.TransformAngle = angle;
+                                canvas.State.TransformScale = scale;
+                                canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
+                                if (ctrlPressed) canvas.FillRect(borderPoly[1].X - lineWidth * 4f, borderPoly[1].Y - lineWidth * 4f, lineWidth * 8f, lineWidth * 8f);
+                                else canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f);
+                                canvas.PopState();
+                            }
+                            else
+                            {
+                                canvas.PushState();
+                                canvas.State.TransformAngle = angle;
+                                canvas.State.TransformScale = scale;
+                                canvas.State.ColorTint = new ColorRgba(255, 255, 255, 200);
+                                canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f + 1f);
+                                canvas.PopState();
 
-                        //        canvas.PushState();
-                        //        canvas.State.TransformAngle = angle;
-                        //        canvas.State.TransformScale = scale;
-                        //        canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
-                        //        canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f);
-                        //        canvas.PopState();
-                        //    }
+                                canvas.PushState();
+                                canvas.State.TransformAngle = angle;
+                                canvas.State.TransformScale = scale;
+                                canvas.State.ColorTint = new ColorRgba(0, 0, 0, 200);
+                                canvas.FillCircle(borderPoly[1].X, borderPoly[1].Y, lineWidth * 4f);
+                                canvas.PopState();
+                            }
 
-                        //    canvas.PushState();
-                        //    canvas.State.TransformAngle = angle;
-                        //    canvas.State.TransformScale = scale;
-                        //    canvas.State.TextFont = Font.GenericMonospace8;
-                        //    canvas.State.ColorTint = i == selectedPointId ? new ColorRgba(0, 0, 0, 255) : new ColorRgba(255, 255, 255, 255);
-                        //    canvas.DrawText(i.ToString(), borderPoly[1].X, borderPoly[1].Y, 0f, Alignment.Center, false);
-                        //    canvas.PopState();
-                        //}
+                            canvas.PushState();
+                            canvas.State.TransformAngle = angle;
+                            canvas.State.TransformScale = scale;
+                            canvas.State.TextFont = Font.GenericMonospace8;
+                            canvas.State.ColorTint = i == selectedPointId ? new ColorRgba(0, 0, 0, 255) : new ColorRgba(255, 255, 255, 255);
+                            canvas.DrawText(i.ToString(), borderPoly[1].X, borderPoly[1].Y, 0f, Alignment.Center, false);
+                            canvas.PopState();
+                        }
                     }
                     //canvas.PushState();
                     //if (isSelected) canvas.State.ColorTint = lineColor;
@@ -792,7 +776,11 @@ namespace YMR.ComplexBody.Core
 
         public void OnInit(InitContext context)
         {
-            //throw new NotImplementedException();
+            if (context == InitContext.Loaded)
+            {
+                trans = this.GameObj.GetComponent<Transform>();
+                rb = this.GameObj.GetComponent<RigidBody>();
+            }
         }
 
         public void OnShutdown(ShutdownContext context)
@@ -824,8 +812,6 @@ namespace YMR.ComplexBody.Core
 
                 if (mouseLeft)
                 {
-                    Transform trans = this.GameObj.GetComponent<Transform>();
-
                     Vector3 mousePos = device.GetSpaceCoord(new Vector2(mouseX, mouseY));
                     float transformedMouseX = mousePos.X;
                     float transformedMouseY = mousePos.Y;
