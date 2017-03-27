@@ -93,8 +93,8 @@ namespace YMR.ComplexBody.Editor
             List<Vector2> points = selectedBody.Points;
             Vector2 min = new Vector2(points.Min(x => x.X), points.Min(x => x.Y));
             Vector2 max = new Vector2(points.Max(x => x.X), points.Max(x => x.Y));
-            float diffX = tr.Pos.X - (min.X + (max.X - min.X) * .5f);
-            float diffY = tr.Pos.Y - (min.Y + (max.Y - min.Y) * .5f);
+            float diffX = (tr.Pos.X - (min.X + (max.X - min.X) * .5f)) - tr.Pos.X;
+            float diffY = (tr.Pos.Y - (min.Y + (max.Y - min.Y) * .5f)) - tr.Pos.Y;
 
             int t = points.Count;
             for (int i = 0; i < t; i++)

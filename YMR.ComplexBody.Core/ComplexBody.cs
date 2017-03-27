@@ -750,8 +750,8 @@ namespace YMR.ComplexBody.Core
                 canvas.State.ColorTint = ColorRgba.Blue.WithAlpha(200);
                 Vector2 min = new Vector2(points.Min(x => x.X), points.Min(x => x.Y));
                 Vector2 max = new Vector2(points.Max(x => x.X), points.Max(x => x.Y));
-                float realX = min.X + (max.X - min.X) * .5f;
-                float realY = min.Y + (max.Y - min.Y) * .5f;
+                float realX = min.X + (max.X - min.X) * .5f + trans.Pos.X;
+                float realY = min.Y + (max.Y - min.Y) * .5f + trans.Pos.Y;
                 canvas.FillCircle(realX, realY, lineWidth * 4f);
                 canvas.DrawCircle(realX, realY, lineWidth * 6f);
                 canvas.PopState();
