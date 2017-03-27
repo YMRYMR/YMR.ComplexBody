@@ -55,10 +55,12 @@ namespace YMR.ComplexBody.Core
             public Vector2 innerA;
             public Vector2 innerB;
             public Vector2 innerCenter;
+            public Vector2 center;
             public float distanceAB;
             public float distanceAA;
             public float distanceBB;
             public float distanceCenterCenter;
+            public float angle;
 
             public Vector2[] Polygon
             {
@@ -72,7 +74,7 @@ namespace YMR.ComplexBody.Core
             {
                 get
                 {
-                    return new Vector2[] { outerA, outerB, outerCenter, dummyInnerA, dummyInnerB, innerA, innerB, innerCenter };
+                    return new Vector2[] { outerA, outerB, outerCenter, dummyInnerA, dummyInnerB, innerA, innerB, innerCenter, center };
                 }
                 set
                 {
@@ -84,6 +86,22 @@ namespace YMR.ComplexBody.Core
                     innerA = value[5];
                     innerB = value[6];
                     innerCenter = value[7];
+                    center = value[8];
+                }
+            }
+            public float[] AllFloats
+            {
+                get
+                {
+                    return new float[] { distanceAB, distanceAA, distanceBB, distanceCenterCenter, angle };
+                }
+                set
+                {
+                    distanceAB = value[0];
+                    distanceAA = value[1];
+                    distanceBB = value[2];
+                    distanceCenterCenter = value[3];
+                    angle = value[4];
                 }
             }
 
@@ -99,7 +117,7 @@ namespace YMR.ComplexBody.Core
 
             public BorderInfo Clone()
             {
-                return new BorderInfo() { AllPoints = this.AllPoints };
+                return new BorderInfo() { AllPoints = this.AllPoints, AllFloats = this.AllFloats };
             }
         }
 
@@ -318,23 +336,27 @@ namespace YMR.ComplexBody.Core
                     if (borderInfo == null) borderInfo = new BorderInfo[t];
                     borderInfo[i].outerA = p1;
                     borderInfo[i].outerB = p0;
-                    float angle01 = MathF.Angle(p0.X, p0.Y, p1.X, p1.Y);
-                    angle01 += borderType == BoderMode.Inside ? MathF.RadAngle90 : -MathF.RadAngle90;
+                    float angle01 = MathF.Angle(p0.X, p0.Y, p1.X, p1.Y) - MathF.RadAngle90;
 
                     borderInfo[i].distanceAB = MathF.Distance(p0.X, p0.Y, p1.X, p1.Y);
                     float halfDistance = borderInfo[i].distanceAB * .5f;
                     Vector2 outerCenterPoint = new Vector2(p0.X + halfDistance * MathF.Cos(angle01), p0.Y + halfDistance * MathF.Sin(angle01));
-                    Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
+                    float mul = borderType == BoderMode.Inside ? -1 : 1;
+                    Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * mul * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * mul * MathF.Sin(angle01 - MathF.RadAngle90));
+                    Vector2 center = new Vector2(outerCenterPoint.X + borderWidth * mul * .5f * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * mul * .5f * MathF.Sin(angle01 - MathF.RadAngle90));
 
                     borderInfo[i].dummyInnerA = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
                     borderInfo[i].dummyInnerB = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
 
                     borderInfo[i].outerCenter = outerCenterPoint;
                     borderInfo[i].innerCenter = innerCenterPoint;
+                    borderInfo[i].center = center;
 
                     borderInfo[i].distanceAA = MathF.Distance(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, borderInfo[i].dummyInnerA.X, borderInfo[i].dummyInnerA.Y);
                     borderInfo[i].distanceBB = MathF.Distance(borderInfo[i].outerB.X, borderInfo[i].outerB.Y, borderInfo[i].dummyInnerB.X, borderInfo[i].dummyInnerB.Y);
                     borderInfo[i].distanceCenterCenter = MathF.Distance(borderInfo[i].outerCenter.X, borderInfo[i].outerCenter.Y, borderInfo[i].innerCenter.X, borderInfo[i].innerCenter.Y);
+
+                    borderInfo[i].angle = angle01;
                 }
             }
             for (int i = 0; i < t; i++)
@@ -631,6 +653,7 @@ namespace YMR.ComplexBody.Core
                         canvas.FillCircle(bi.dummyInnerB.X, bi.dummyInnerB.Y, lineWidth * 2f);
                         canvas.FillCircle(bi.innerA.X, bi.innerA.Y, lineWidth * 2f);
                         canvas.FillCircle(bi.innerB.X, bi.innerB.Y, lineWidth * 2f);
+                        canvas.FillCircle(bi.center.X, bi.center.Y, lineWidth * 2f);
 
                         canvas.PopState();
                     }
