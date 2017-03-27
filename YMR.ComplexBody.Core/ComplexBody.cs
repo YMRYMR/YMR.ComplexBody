@@ -185,7 +185,23 @@ namespace YMR.ComplexBody.Core
 
         #endregion
 
-        #region Public Methods
+        #region Public Methods[EditorHintFlags(MemberFlags.Invisible)]
+
+        public Rect AABB(Vector2[] vertices)
+        {
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                minX = MathF.Min(minX, vertices[i].X);
+                minY = MathF.Min(minY, vertices[i].Y);
+                maxX = MathF.Max(maxX, vertices[i].X);
+                maxY = MathF.Max(maxY, vertices[i].Y);
+            }
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
+        }
 
         public void UpdateShapes()
         {
@@ -542,11 +558,6 @@ namespace YMR.ComplexBody.Core
                                          out crossX, out crossY, true);
                         borderPoly[3] = new Vector2(crossX, crossY);
 
-                        //Rect localRect = new Rect(MathF.Min(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
-                        //                          MathF.Min(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y),
-                        //                          MathF.Max(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
-                        //                          MathF.Max(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y));
-
                         if (!local3D || camera3D != null)
                         {
                             //TransformPoint(trans, ref borderPoly[0].X, ref borderPoly[0].Y);
@@ -557,16 +568,20 @@ namespace YMR.ComplexBody.Core
 
                         if (showBorderMaterial)
                         {
+                            Rect localRect = AABB(borderPoly);
+
+                            //float ang = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
+
                             canvas.PushState();
                             canvas.State.SetMaterial(this.borderMaterial);
                             canvas.State.TransformAngle = angle;
                             canvas.State.TransformScale = scale;
-                            //canvas.State.TextureCoordinateRect = new Rect(
-                            //    (1 / brW) * localRect.X,
-                            //    (1 / brH) * localRect.Y,
-                            //    (1 / brW) * localRect.W,
-                            //    (1 / brH) * localRect.H
-                            //);
+                            canvas.State.TextureCoordinateRect = new Rect(
+                                (1 / brW) * localRect.X,
+                                (1 / brH) * localRect.Y,
+                                (1 / brW) * localRect.W,
+                                (1 / brH) * localRect.H
+                            );
                             canvas.FillPolygon(borderPoly, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
                             canvas.PopState();
                         }
