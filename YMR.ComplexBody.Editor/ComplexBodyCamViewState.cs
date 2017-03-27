@@ -93,7 +93,7 @@ namespace YMR.ComplexBody.Editor
             {
                 selectedBody.Points[i] = new Vector2(selectedBody.Points[i].X * x, selectedBody.Points[i].Y * y);
             }
-            selectedBody.UpdateShapes();
+            selectedBody.UpdateBody(true);
         }
 
         protected override void OnLeaveState()
