@@ -96,7 +96,8 @@ namespace YMR.ComplexBody.Core
         private bool scaleTexture = false;
         private BodyShapeMode collisionType = BodyShapeMode.Triangulation;
         private BoderMode borderType = BoderMode.Inside;
-        private bool use3D = false;
+        private bool local3D = false;
+        private Camera camera3D = null;
 
         #endregion
 
@@ -122,7 +123,14 @@ namespace YMR.ComplexBody.Core
         public bool ScaleTexture { get { return scaleTexture; } set { scaleTexture = value; } }
         public BodyShapeMode ShapeMode { get { return collisionType; } set { collisionType = value; } }
         public BoderMode BorderType { get { return borderType; } set { borderType = value; } }
-        public bool Use3D { get { return use3D; } set { use3D = value; } }
+        /// <summary>
+        /// If set, applies a 3D like effect. If Camera3D is set, this property is ignored.
+        /// </summary>
+        public bool Local3D { get { return local3D; } set { local3D = value; } }
+        /// <summary>
+        /// If set, the 3D effect will use the camera as center point. Overrides the Local3D porperty.
+        /// </summary>
+        public Camera Camera3D { get { return camera3D; } set { camera3D = value; } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool CtrlPressed { get { return ctrlPressed; } set { ctrlPressed = value; } }
@@ -405,14 +413,20 @@ namespace YMR.ComplexBody.Core
                         borderPoly[0] = ordererdTriangle[0];
                         borderPoly[1] = ordererdTriangle[1];
                         float angle01 = MathF.Angle(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y);
-                        if (borderType == BoderMode.Inside) angle01 -= MathF.RadAngle90;
-                        else angle01 += MathF.RadAngle90;
+                        angle01 += borderType == BoderMode.Inside ? -MathF.RadAngle90 : MathF.RadAngle90;
 
                         float halfDistance = MathF.Distance(borderPoly[0].X, borderPoly[0].Y, borderPoly[1].X, borderPoly[1].Y) * .5f;
                         Vector2 outerCenterPoint = new Vector2(borderPoly[0].X + halfDistance * MathF.Cos(angle01), borderPoly[0].Y + halfDistance * MathF.Sin(angle01));
                         outerCenterPoint.X += trans.Pos.X;
                         outerCenterPoint.Y += trans.Pos.Y;
                         Vector2 innerCenterPoint = new Vector2(outerCenterPoint.X + borderWidth * MathF.Cos(angle01 - MathF.RadAngle90), outerCenterPoint.Y + borderWidth * MathF.Sin(angle01 - MathF.RadAngle90));
+
+                        if (camera3D != null)
+                        {
+                            Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
+                            innerCenterPoint = new Vector2(innerCenterPoint.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f), 
+                                                           innerCenterPoint.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
+                        }
 
                         innerLinePointsA[i] = new Vector2(innerCenterPoint.X + halfDistance * MathF.Cos(angle01), innerCenterPoint.Y + halfDistance * MathF.Sin(angle01));
                         innerLinePointsB[i] = new Vector2(innerCenterPoint.X - halfDistance * MathF.Cos(angle01), innerCenterPoint.Y - halfDistance * MathF.Sin(angle01));
@@ -533,7 +547,7 @@ namespace YMR.ComplexBody.Core
                         //                          MathF.Max(borderPoly[0].X, borderPoly[1].X, borderPoly[2].X, borderPoly[3].X),
                         //                          MathF.Max(borderPoly[0].Y, borderPoly[1].Y, borderPoly[2].Y, borderPoly[3].Y));
 
-                        if (!use3D)
+                        if (!local3D || camera3D != null)
                         {
                             //TransformPoint(trans, ref borderPoly[0].X, ref borderPoly[0].Y);
                             //TransformPoint(trans, ref borderPoly[1].X, ref borderPoly[1].Y);
@@ -567,6 +581,10 @@ namespace YMR.ComplexBody.Core
                             canvas.FillCircle(outerCenterPoint.X, outerCenterPoint.Y, lineWidth * 2f);
                             canvas.FillCircle(innerCenterPoint.X, innerCenterPoint.Y, lineWidth * 2f);
                             canvas.FillThickLine(outerCenterPoint.X, outerCenterPoint.Y, innerCenterPoint.X, innerCenterPoint.Y, lineWidth);
+                            
+                            //TransformPoint(trans, ref tempInnerLinePointsA[1].X, ref tempInnerLinePointsA[1].Y, true);
+                            //TransformPoint(trans, ref tempInnerLinePointsB[1].X, ref tempInnerLinePointsB[1].Y, true);
+
                             canvas.FillThickLine(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y, lineWidth);
                             canvas.FillCircle(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, lineWidth * 2f);
                             canvas.FillCircle(tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y, lineWidth * 2f);
