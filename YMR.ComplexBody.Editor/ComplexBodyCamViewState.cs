@@ -190,7 +190,7 @@ namespace YMR.ComplexBody.Editor
             if (selectedBody != null)
             {
                 selectedBody.CtrlPressed = e.Control;
-                selectedBody.MustBeUpdated = true;
+                selectedBody.OnUpdate();
                 this.View.Refresh();
             }
         }
@@ -210,7 +210,7 @@ namespace YMR.ComplexBody.Editor
                 selectedBody.MouseY = e.Y;
                 selectedBody.MouseLeft = e.Button == MouseButtons.Left;
                 selectedBody.MouseRight = e.Button == MouseButtons.Right;
-                selectedBody.MustBeUpdated = true;
+                selectedBody.OnUpdate();
                 this.View.Refresh();
             }
         }

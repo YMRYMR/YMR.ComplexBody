@@ -22,8 +22,10 @@ namespace YMR.ComplexBody.Core
     [EditorHintImage(CoreResNames.ImageRigidBody)]
     [RequiredComponent(typeof(Transform))]
     [RequiredComponent(typeof(RigidBody))]
-    public class ComplexBody : Renderer, ICmpInitializable, ICmpUpdatable, ICmpEditorUpdatable
+    public class ComplexBody : Component, ICmpRenderer, ICmpInitializable
     {
+        #region Enums
+
         /// <summary>
         /// Not used yet
         /// </summary>
@@ -44,6 +46,8 @@ namespace YMR.ComplexBody.Core
             Inside = 0,
             Outside = 1
         }
+
+        #endregion
 
         private struct BorderInfo
         {
@@ -140,8 +144,6 @@ namespace YMR.ComplexBody.Core
         [DontSerialize]
         private bool mouseRight = false;
         [DontSerialize]
-        private bool mustBeUpdated = true;
-        [DontSerialize]
         private float mouseX;
         [DontSerialize]
         private float mouseY;
@@ -155,6 +157,8 @@ namespace YMR.ComplexBody.Core
         BorderInfo[] borderInfo = null;
         [DontSerialize]
         CPolygonShape cutPolygon = null;
+        [DontSerialize]
+        Vector3 mousePos;
 
         private List<Vector2> points = new List<Vector2>()
         {
@@ -195,7 +199,7 @@ namespace YMR.ComplexBody.Core
         public bool UpdatableUsingMouse { get { return updatableUsingMouse; } set { updatableUsingMouse = value; } }
         public ContentRef<Material> SharedMaterial { get { return sharedMaterial; } set { sharedMaterial = value; } }
         public ContentRef<Material> BorderMaterial { get { return borderMaterial; } set { borderMaterial = value; } }
-        public override float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
+        public float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
         public float BorderWidth { get { return borderWidth; } set { borderWidth = value; UpdateBody(true); } }
         public float LineWidth { get { return lineWidth; } set { lineWidth = value; } }
         public ColorRgba PolygonColor { get { return polygonColor; } set { polygonColor = value; } }
@@ -214,8 +218,6 @@ namespace YMR.ComplexBody.Core
         public bool MouseLeft { get { return mouseLeft; } set { mouseLeft = value; } }
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool MouseRight { get { return mouseRight; } set { mouseRight = value; } }
-        [EditorHintFlags(MemberFlags.Invisible)]
-        public bool MustBeUpdated { get { return mustBeUpdated; } set { mustBeUpdated = value; } }
         [EditorHintFlags(MemberFlags.Invisible)]
         public float MouseX { get { return mouseX; } set { mouseX = value; } }
         [EditorHintFlags(MemberFlags.Invisible)]
@@ -265,7 +267,7 @@ namespace YMR.ComplexBody.Core
 
         #endregion
 
-        #region Public Methods[EditorHintFlags(MemberFlags.Invisible)]
+        #region Public Methods
 
         public Rect AABB(Vector2[] vertices)
         {
@@ -463,22 +465,33 @@ namespace YMR.ComplexBody.Core
             }
         }
 
-        public override void Draw(IDrawDevice device)
+        #endregion
+
+        #region ICmpRenderer
+
+        public bool IsVisible(IDrawDevice device)
+        {
+            bool ret = false;
+
+            if (points != null && (device.VisibilityMask & VisibilityFlag.ScreenOverlay) == VisibilityFlag.None)
+            {
+                Vector2 min = new Vector2(points.Min(x => x.X), points.Min(x => x.Y));
+                Vector2 max = new Vector2(points.Max(x => x.X), points.Max(x => x.Y));
+                Vector3 screenMin = device.GetScreenCoord(min);
+                Vector3 screenMax = device.GetScreenCoord(max);
+                ret = (screenMax.X >= 0 && screenMax.Y >= 0) || (screenMin.X <= device.TargetSize.X && screenMin.Y <= device.TargetSize.Y);
+            }
+
+            return ret;
+        }
+
+        public void Draw(IDrawDevice device)
         {
             Canvas canvas = new Canvas(device, this.vertexBuffer);
+            float angle = trans.Angle;
+            Vector2 scale = new Vector2(trans.Scale, trans.Scale);
 
-            Draw(canvas, trans.Angle, new Vector2(trans.Scale, trans.Scale));
-        }
-        public void Draw(Canvas canvas, float angle, Vector2 scale)
-        {
-            IDrawDevice device = canvas.DrawDevice;
-
-            if (mustBeUpdated)
-            {
-                mustBeUpdated = false;
-                OnUpdate(canvas);
-            }
-            else if (updatableUsingMouse && DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
+            if (updatableUsingMouse && DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
             {
                 ctrlPressed = DualityApp.Keyboard[Duality.Input.Key.ControlLeft] || DualityApp.Keyboard[Duality.Input.Key.ControlRight];
                 mouseLeft = DualityApp.Mouse.ButtonPressed(Duality.Input.MouseButton.Left);
@@ -488,7 +501,7 @@ namespace YMR.ComplexBody.Core
             }
 
             // Transformed mouse position
-            Vector3 mousePos = device.GetSpaceCoord(new Vector2(mouseX, mouseY));
+            mousePos = device.GetSpaceCoord(new Vector2(mouseX, mouseY));
             float transformedMouseX = mousePos.X;
             float transformedMouseY = mousePos.Y;
 
@@ -500,7 +513,7 @@ namespace YMR.ComplexBody.Core
                 if (showMaterial || showPolygons)
                 {
                     Rect boundingRect = points.BoundingBox();
-                    
+
                     float brW = scaleTexture ? boundingRect.W : this.sharedMaterial.Res.MainTexture.Res.Size.X;
                     float brH = scaleTexture ? boundingRect.H : this.sharedMaterial.Res.MainTexture.Res.Size.Y;
                     float ratioW = brH / brW;
@@ -598,7 +611,7 @@ namespace YMR.ComplexBody.Core
                     p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
                     if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
                     else p1 = new Vector2(points[0].X, points[0].Y);
-                        
+
                     BorderInfo bi = borderInfo[i].Clone();
 
                     if (camera3D != null)
@@ -804,8 +817,7 @@ namespace YMR.ComplexBody.Core
 
         #region ICmpUpdatable & ICmpEditorUpdatable
 
-        public void OnUpdate() { }
-        public void OnUpdate(Canvas canvas)
+        public void OnUpdate()
         {
             if (updatableUsingMouse && !working)
             {
@@ -818,13 +830,10 @@ namespace YMR.ComplexBody.Core
                     mouseY = DualityApp.Mouse.Y;
                 }
 
-                IDrawDevice device = canvas.DrawDevice;
-
                 working = true;
 
                 if (mouseLeft)
                 {
-                    Vector3 mousePos = device.GetSpaceCoord(new Vector2(mouseX, mouseY));
                     float transformedMouseX = mousePos.X;
                     float transformedMouseY = mousePos.Y;
                     Transform transInv = new Transform() { Angle = -trans.Angle, Pos = new Vector3(-trans.Pos.X, -trans.Pos.Y, -trans.Pos.Z) };
@@ -907,7 +916,7 @@ namespace YMR.ComplexBody.Core
 
         #endregion
 
-        protected override void OnCopyDataTo(object targetObj, ICloneOperation operation)
+        protected void OnCopyDataTo(object targetObj, ICloneOperation operation)
         {
             base.OnCopyDataTo(targetObj, operation);
             ComplexBody target = targetObj as ComplexBody;
