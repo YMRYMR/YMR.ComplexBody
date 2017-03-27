@@ -108,7 +108,8 @@ namespace YMR.ComplexBody.Core
             public void Transform(Transform trans)
             {
                 Vector2[] allPoints = AllPoints;
-                for (int i = 0; i < 8; i++)
+                int t = allPoints.Length;
+                for (int i = 0; i < t; i++)
                 {
                     TransformPoint(trans, ref allPoints[i].X, ref allPoints[i].Y);
                 }
