@@ -167,6 +167,7 @@ namespace YMR.ComplexBody.Core
         private bool showBorderMaterial = true;
         private bool showBorderGeometry = true;
         private bool showDummies = false;
+        private bool showLimits = false;
         private bool showPolygons = true;
         private bool showMaterial = true;
         private bool updatableUsingMouse = true;
@@ -177,7 +178,6 @@ namespace YMR.ComplexBody.Core
         private ColorRgba polygonColor = new ColorRgba(255, 0, 0, 200);
         private ColorRgba borderGeometryColor = new ColorRgba(0, 255, 0, 200);
         private ColorRgba dummyColor = new ColorRgba(0, 0, 255, 200);
-        private bool scaleTexture = false;
         private BodyShapeMode shapeMode = BodyShapeMode.Triangulation;
         private BoderMode borderType = BoderMode.Inside;
         private Camera camera3D = null;
@@ -193,6 +193,7 @@ namespace YMR.ComplexBody.Core
         public bool ShowBorderMaterial { get { return showBorderMaterial; } set { showBorderMaterial = value; } }
         public bool ShowBorderGeometry { get { return showBorderGeometry; } set { showBorderGeometry = value; } }
         public bool ShowDummies { get { return showDummies; } set { showDummies = value; } }
+        public bool ShowLimits { get { return showLimits; } set { showLimits = value; } }
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; } }
         public bool ShowMaterial { get { return showMaterial; } set { showMaterial = value; } }
         public bool UpdatableUsingMouse { get { return updatableUsingMouse; } set { updatableUsingMouse = value; } }
@@ -204,7 +205,6 @@ namespace YMR.ComplexBody.Core
         public ColorRgba PolygonColor { get { return polygonColor; } set { polygonColor = value; } }
         public ColorRgba DummyColor { get { return dummyColor; } set { dummyColor = value; } }
         public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; } }
-        public bool ScaleTexture { get { return scaleTexture; } set { scaleTexture = value; } }
         public BodyShapeMode ShapeMode { get { return shapeMode; } set { shapeMode = value; UpdateBody(true); } }
         public BoderMode BorderType { get { return borderType; } set { borderType = value; UpdateBody(true); } }
         /// <summary>
@@ -276,7 +276,6 @@ namespace YMR.ComplexBody.Core
 
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color)
         {
-            //Rect pointRect = new Rect(radius, radius);
             Vector3 tempPos = new Vector3(point, trans.Pos.Z);
             float tempScale = 1f;
             device.PreprocessCoords(ref tempPos, ref tempScale);
@@ -284,7 +283,6 @@ namespace YMR.ComplexBody.Core
             VertexC1P3T2[] vertices = new VertexC1P3T2[10];
             vertices[0].Pos = tempPos;
             vertices[0].Color = color;
-            //vertices[0].TexCoord = pointRect.Center;
             float pointAngle = 0f;
             for (int j = 1; j < 10; j++)
             {
@@ -294,8 +292,6 @@ namespace YMR.ComplexBody.Core
                 vertices[j].Pos.Y = tempPos.Y - cos * radius;
                 vertices[j].Pos.Z = tempPos.Z;
                 vertices[j].Color = color;
-                //vertices[j].TexCoord.X = pointRect.X + (0.5f + 0.5f * sin) * pointRect.W;
-                //vertices[j].TexCoord.Y = pointRect.Y + (0.5f - 0.5f * cos) * pointRect.H;
                 pointAngle += angleStep;
             }
             return vertices;
@@ -328,26 +324,23 @@ namespace YMR.ComplexBody.Core
         }
         private VertexC1P3T2[] GetPoly(IDrawDevice device, Vector2[] points, ColorRgba color)
         {
-            return GetPoly(device, points, color, new Vector2[] { Vector2.Zero, Vector2.One });
+            Vector2[] texCoord = new Vector2[] { Vector2.Zero, new Vector2(1f, 0f), Vector2.One, new Vector2(0f, 1f) };
+            return GetPoly(device, points, color, texCoord);
         }
         private VertexC1P3T2[] GetPoly(IDrawDevice device, Vector2[] points, ColorRgba color, Vector2[] texCoord)
         {
             Vector3 tempPos = new Vector3(Vector2.Zero, trans.Pos.Z);
             float tempScale = 1.0f;
             device.PreprocessCoords(ref tempPos, ref tempScale);
-
-            // Determine bounding box
             Rect pointBoundingRect = points.BoundingBox();
-
-            // Set up vertex array
             int t = points.Length;
             VertexC1P3T2[] vertices = new VertexC1P3T2[t];
             for (int i = 0; i < t; i++)
             {
                 vertices[i].Pos.X = points[i].X * tempScale + tempPos.X;
                 vertices[i].Pos.Y = points[i].Y * tempScale + tempPos.Y;
-                vertices[i].TexCoord.X = texCoord[0].X + ((points[i].X - pointBoundingRect.X) / pointBoundingRect.W) * texCoord[1].X;
-                vertices[i].TexCoord.Y = texCoord[0].Y + ((points[i].Y - pointBoundingRect.Y) / pointBoundingRect.H) * texCoord[1].X;
+                vertices[i].TexCoord.X = texCoord[i].X;
+                vertices[i].TexCoord.Y = texCoord[i].Y;
                 vertices[i].Color = color;
             }
 
@@ -358,7 +351,7 @@ namespace YMR.ComplexBody.Core
 
         #endregion
 
-        #region Body nad Shape Methods
+        #region Body and Shape Methods
 
         public Rect AABB(Vector2[] vertices)
         {
@@ -373,7 +366,7 @@ namespace YMR.ComplexBody.Core
                 maxX = MathF.Max(maxX, vertices[i].X);
                 maxY = MathF.Max(maxY, vertices[i].Y);
             }
-            return new Rect(minX, minY, maxX - minX, maxY - minY);
+            return new Rect(minX, minY, maxX - minX, maxY - minY); 
         }
 
         public void UpdateBody()
@@ -413,15 +406,6 @@ namespace YMR.ComplexBody.Core
             {
                 if (showBorderMaterial || showBorderGeometry || showDummies || isSelected)
                 {
-                    IEnumerable<ShapeInfo> shapes = rb.Shapes.Where(x => x.GetType() == typeof(PolyShapeInfo));
-
-                    Rect boundingRect = points.BoundingBox();
-
-                    float brW = scaleTexture ? boundingRect.W : this.borderMaterial.Res.MainTexture.Res.Size.X;
-                    float brH = scaleTexture ? boundingRect.H : this.borderMaterial.Res.MainTexture.Res.Size.Y;
-                    float ratioW = brH / brW;
-                    float ratioH = brW / brH;
-
                     Vector2 p0, p1;
                     p0 = new Vector2(points[i].X, points[i].Y);
                     if (i < t - 1) p1 = new Vector2(points[i + 1].X, points[i + 1].Y);
@@ -509,6 +493,8 @@ namespace YMR.ComplexBody.Core
         }
         private void UpdateShapes(BorderInfo[] borderInfo)
         {
+            if (rb == null) return; 
+
             // Rigid Body Shapes
             int t = points.Count;
             rb.ClearShapes();
@@ -578,7 +564,7 @@ namespace YMR.ComplexBody.Core
 
         public void Draw(IDrawDevice device)
         {
-            if (updatableUsingMouse && DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
+            if (updatableUsingMouse && isSelected && DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
             {
                 ctrlPressed = DualityApp.Keyboard[Duality.Input.Key.ControlLeft] || DualityApp.Keyboard[Duality.Input.Key.ControlRight];
                 mouseLeft = DualityApp.Mouse.ButtonPressed(Duality.Input.MouseButton.Left);
@@ -599,10 +585,6 @@ namespace YMR.ComplexBody.Core
             Rect boundingRect = points.BoundingBox();
             TransformPoint(trans, ref boundingRect.X, ref boundingRect.Y);
             TransformPoint(trans, ref boundingRect.W, ref boundingRect.H);
-            float brW = scaleTexture ? boundingRect.W : mainTex.Size.X;
-            float brH = scaleTexture ? boundingRect.H : mainTex.Size.Y;
-            float ratioW = brH / brW;
-            float ratioH = brW / brH;
 
             if (cutPolygon != null && points.Count > 2)
             {
@@ -614,21 +596,35 @@ namespace YMR.ComplexBody.Core
                     {
                         CPoint2D[] points = cutPolygon.Polygons(i);
                         int nPoints = cutPolygon.Polygons(i).Length;
-                        Vector2[] tempArray = new Vector2[nPoints];
-                        for (int j = 0; j < nPoints; j++)
+                        Vector2[] tempArray = new Vector2[]
                         {
-                            tempArray[j] = new Vector2((int)cutPolygon.Polygons(i)[j].X, (int)cutPolygon.Polygons(i)[j].Y);
-                            TransformPoint(trans, ref tempArray[j].X, ref tempArray[j].Y);
-                        }
-
+                            new Vector2((int)cutPolygon.Polygons(i)[0].X, (int)cutPolygon.Polygons(i)[0].Y),
+                            new Vector2((int)cutPolygon.Polygons(i)[1].X, (int)cutPolygon.Polygons(i)[1].Y),
+                            new Vector2((int)cutPolygon.Polygons(i)[2].X, (int)cutPolygon.Polygons(i)[2].Y)
+                        };
+                        TransformPoint(trans, ref tempArray[0].X, ref tempArray[0].Y);
+                        TransformPoint(trans, ref tempArray[1].X, ref tempArray[1].Y);
+                        TransformPoint(trans, ref tempArray[2].X, ref tempArray[2].Y);
                         if (showMaterial)
                         {
                             Rect localRect = AABB(tempArray);
+                            //Vector2[] texCoord = new Vector2[] {
+                            //    new Vector2((1 / brW) * localRect.X, (1 / brH) * localRect.Y),
+                            //    new Vector2((1 / brW) * localRect.W, (1 / brH) * localRect.H)
+                            //};
+                            float ratioX = 1f / (boundingRect.W - boundingRect.X);
+                            float ratioY = 1f / (boundingRect.H - boundingRect.Y);
+                            float x = localRect.X * ratioX;
+                            float y = localRect.Y * ratioY;
+                            float w = (localRect.X + localRect.W) * ratioX;
+                            float h = (localRect.Y + localRect.H) * ratioY;
                             Vector2[] texCoord = new Vector2[] {
-                                new Vector2((1 / brW) * localRect.X, (1 / brH) * localRect.Y),
-                                new Vector2((1 / brW) * localRect.W, (1 / brH) * localRect.H)
+                                new Vector2(x, y),
+                                new Vector2(w, y),
+                                new Vector2(w, h),
+                                new Vector2(x, h)
                             };
-                            device.AddVertices(sharedMaterial, VertexMode.TriangleFan, GetPoly(device, tempArray, mainColor, texCoord));
+                            device.AddVertices(sharedMaterial, VertexMode.TriangleFan, GetPoly(device, tempArray, mainColor));
                         }
                         if (showPolygons)
                         {
@@ -676,29 +672,16 @@ namespace YMR.ComplexBody.Core
                             bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
                                                     bi.innerB.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
                         }
-                        bis3D[i] = bi;
                     }
+                    bis3D[i] = bi;
 
                     Vector2[] borderPoly = bi.Polygon;
                     bi.Transform(trans);
 
-                    //if (showBorderMaterial)
-                    //{
-                    //    Rect localRect = AABB(borderPoly);
-
-                    //    canvas.PushState();
-                    //    canvas.State.SetMaterial(this.borderMaterial);
-                    //    canvas.State.TransformAngle = angle;
-                    //    canvas.State.TransformScale = scale;
-                    //    canvas.State.TextureCoordinateRect = new Rect(
-                    //        (1 / brW) * localRect.X,
-                    //        (1 / brH) * localRect.Y,
-                    //        (1 / brW) * localRect.W,
-                    //        (1 / brH) * localRect.H
-                    //    );
-                    //    canvas.FillPolygon(borderPoly, trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
-                    //    canvas.PopState();
-                    //}
+                    if (showBorderMaterial)
+                    {
+                        device.AddVertices(borderMaterial, VertexMode.TriangleFan, GetPoly(device, bi.Polygon, borderColor));
+                    }
 
                     if (showDummies)
                     {
@@ -761,16 +744,50 @@ namespace YMR.ComplexBody.Core
                 }
             }
 
-            if (showDummies)
+            if (showLimits)
             {
                 // Game object center
-                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, trans.Pos.Xy, lineWidth * 4f + 1, ColorRgba.White.WithAlpha(200)));
+                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, trans.Pos.Xy, lineWidth * 5f + 1, ColorRgba.White.WithAlpha(.5f)));
                 // Body center
-                Vector2 min = new Vector2(points.Min(x => x.X), points.Min(x => x.Y));
-                Vector2 max = new Vector2(points.Max(x => x.X), points.Max(x => x.Y));
-                float realX = min.X + (max.X - min.X) * .5f + trans.Pos.X;
-                float realY = min.Y + (max.Y - min.Y) * .5f + trans.Pos.Y;
-                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, trans.Pos.Xy, lineWidth * 4f + 1, dummyColor));
+                Vector2[] tempPoints = new Vector2[t];
+                for (int i = 0; i < t; i++)
+                {
+                    tempPoints[i] = new Vector2(points[i].X, points[i].Y);
+                    TransformPoint(trans, ref tempPoints[i].X, ref tempPoints[i].Y);
+                }
+                Vector2 min = new Vector2(tempPoints.Min(x => x.X), tempPoints.Min(x => x.Y));
+                Vector2 max = new Vector2(tempPoints.Max(x => x.X), tempPoints.Max(x => x.Y));
+                float realX = min.X + (max.X - min.X) * .5f;
+                float realY = min.Y + (max.Y - min.Y) * .5f;
+                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, new Vector2(realX, realY), lineWidth * 4f + 1, ColorRgba.Black.WithAlpha(.5f)));
+                // Inner bounding Rect
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, min, new Vector2(max.X, min.Y), lineWidth, ColorRgba.Black.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.Black.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.Black.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.Black.WithAlpha(.5f)));
+                // Outer bounding Rect
+                min = new Vector2(float.MaxValue, float.MaxValue);
+                max = new Vector2(float.MinValue, float.MinValue);
+                for (int i = 0; i < t; i++)
+                {
+                    BorderInfo tempBi = bis3D[i].Clone();
+                    tempPoints = tempBi.Polygon;
+                    for (int j = 0; j < 3; j++)
+                    {
+                        TransformPoint(trans, ref tempPoints[j].X, ref tempPoints[j].Y);
+                        if (tempPoints[j].X < min.X) min.X = tempPoints[j].X;
+                        else if (tempPoints[j].X > max.X) max.X = tempPoints[j].X;
+                        if (tempPoints[j].Y < min.Y) min.Y = tempPoints[j].Y;
+                        else if (tempPoints[j].Y > max.Y) max.Y = tempPoints[j].Y;
+                    }
+                }
+                realX = min.X + (max.X - min.X) * .5f;
+                realY = min.Y + (max.Y - min.Y) * .5f;
+                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, new Vector2(realX, realY), lineWidth * 3f + 1, ColorRgba.White.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, min, new Vector2(max.X, min.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)));
+                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)));
             }
 
             if (camera3D != null)
@@ -779,7 +796,7 @@ namespace YMR.ComplexBody.Core
             }
 
             // Mouse
-            if (updatableUsingMouse)
+            if (updatableUsingMouse && isSelected)
             {
                 Vector2 a = new Vector2(mouse.X - 10, mouse.Y);
                 Vector2 b = new Vector2(mouse.X + 10, mouse.Y);
@@ -796,7 +813,7 @@ namespace YMR.ComplexBody.Core
 
         public void OnInit(InitContext context)
         {
-            if (context == InitContext.Loaded)
+            if (context == InitContext.Activate)
             {
                 trans = this.GameObj.GetComponent<Transform>();
                 rb = this.GameObj.GetComponent<RigidBody>();
@@ -815,7 +832,7 @@ namespace YMR.ComplexBody.Core
 
         public void OnUpdate()
         {
-            if (updatableUsingMouse && !working)
+            if (updatableUsingMouse && isSelected && !working)
             {
                 if (DualityApp.ExecEnvironment != DualityApp.ExecutionEnvironment.Editor)
                 {
@@ -912,9 +929,9 @@ namespace YMR.ComplexBody.Core
 
         #endregion
 
-        protected void OnCopyDataTo(object targetObj, ICloneOperation operation)
+        protected override void OnCopyDataTo(object targetObj, ICloneOperation operation)
         {
-            base.OnCopyDataTo(targetObj, operation);
+            base.OnCopyDataTo(targetObj, operation); 
             ComplexBody target = targetObj as ComplexBody;
 
             target.polygonColor = this.polygonColor;
@@ -922,11 +939,20 @@ namespace YMR.ComplexBody.Core
             target.sharedMaterial = this.sharedMaterial;
             target.borderMaterial = this.borderMaterial;
             target.points = new List<Vector2>(this.points.ToArray());
-            target.scaleTexture = this.scaleTexture;
             target.showBorderMaterial = this.showBorderMaterial;
             target.showPolygons = this.showPolygons;
             target.showMaterial = this.showMaterial;
             target.updatableUsingMouse = this.updatableUsingMouse;
+            target.showBorderGeometry = this.showBorderGeometry;
+            target.showDummies = this.showDummies;
+            target.lineWidth = this.lineWidth;
+            target.borderGeometryColor = this.borderGeometryColor;
+            target.dummyColor = this.dummyColor;
+            target.shapeMode = this.shapeMode;
+            target.borderType = this.borderType;
+            target.camera3D = this.camera3D;
+            target.showLimits = this.showLimits;
+            target.UpdateBody(true);
         }
     }
 }
