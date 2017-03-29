@@ -413,7 +413,7 @@ namespace YMR.ComplexBody.Core
                         if (i < t - 1) p1 = new Vector2(points[i + 1].X, points[i + 1].Y);
                         else p1 = new Vector2(points[0].X, points[0].Y);
 
-                        if (borderInfo == null) borderInfo = new BorderInfo[t];
+                        if (borderInfo == null || t != borderInfo.Length) borderInfo = new BorderInfo[t];
                         borderInfo[i].outerA = p1;
                         borderInfo[i].outerB = p0;
                         float angle01 = MathF.Angle(p0.X, p0.Y, p1.X, p1.Y) - MathF.RadAngle90;
@@ -586,6 +586,18 @@ namespace YMR.ComplexBody.Core
                     Vector3 mouse = device.GetSpaceCoord(new Vector2(this.mouseX, this.mouseY));
 
                     int t = points.Count;
+
+                    // Double check for added points
+                    if (borderInfo == null || t != borderInfo.Length)
+                    {
+                        UpdateBody();
+                        t = points.Count;
+                        if (borderInfo == null || t != borderInfo.Length)
+                        {
+                            working = false;
+                            return;
+                        }
+                    }
 
                     Texture mainTex = this.sharedMaterial.Res.MainTexture.Res;
                     Texture borderTex = this.borderMaterial.Res.MainTexture.Res;
