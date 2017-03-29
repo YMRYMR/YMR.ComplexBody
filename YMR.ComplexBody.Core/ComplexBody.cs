@@ -271,8 +271,12 @@ namespace YMR.ComplexBody.Core
         }
         private static void TransformPoint(Transform trans, ref float x, ref float y, bool applyPos, bool applyAngle, bool applyScale, bool invertPos, bool invertAngle)
         {
+            TransformPoint(trans, ref x, ref y, applyPos, applyAngle, applyScale, invertPos, invertAngle, false);
+        }
+        private static void TransformPoint(Transform trans, ref float x, ref float y, bool applyPos, bool applyAngle, bool applyScale, bool invertPos, bool invertAngle, bool invertScale)
+        {
             float angle = applyAngle ? invertAngle ? -trans.Angle : trans.Angle : 0;
-            float scale = applyScale ? trans.Scale : 1;
+            float scale = applyScale ? invertScale ? -trans.Scale : trans.Scale : 1;
             MathF.TransformCoord(ref x, ref y, angle, scale);
             if (applyPos)
             {
@@ -429,17 +433,6 @@ namespace YMR.ComplexBody.Core
                                 float y = tempArray[j].Y * ratioY;
                                 texCoord[j] = new Vector2(x, y);
                             }
-                            //Rect localRect = AABB(tempArray);
-                            //float x = localRect.X * ratioX;
-                            //float y = localRect.Y * ratioY;
-                            //float w = (localRect.X + localRect.W) * ratioX;
-                            //float h = (localRect.Y + localRect.H) * ratioY;
-                            //Vector2[] texCoord = new Vector2[] {
-                            //        new Vector2(x, y),
-                            //        new Vector2(w, y),
-                            //        new Vector2(w, h),
-                            //        new Vector2(x, h)
-                            //    };
 
                             vertexInfo.material.Add(GetPoly(device, tempArray, mainColor, texCoord));
                         }
@@ -854,7 +847,7 @@ namespace YMR.ComplexBody.Core
                     Texture borderTex = this.borderMaterial.Res.MainTexture.Res;
 
                     // Change this line to allow vertex cache
-                    if (this.vertexInfo == null || this.vertexInfo.discarded) CreateVertices(device);
+                    if (DualityApp.ExecContext == DualityApp.ExecutionContext.Editor || this.vertexInfo == null || this.vertexInfo.discarded) CreateVertices(device);
                     else if (camera3D != null) CreateVertices(device, false, true, false, true, false, true);
                     else if (lastTrans == null || lastTrans.Pos.X != trans.Pos.X || lastTrans.Pos.Y != trans.Pos.Y || lastTrans.Pos.Z != trans.Pos.Z || lastTrans.Angle != trans.Angle || lastTrans.Scale != trans.Scale)
                     {
@@ -937,10 +930,12 @@ namespace YMR.ComplexBody.Core
                         // Mouse
                         if (updatableUsingMouse)
                         {
-                            Vector2 a = new Vector2(mouse.X - 10, mouse.Y);
-                            Vector2 b = new Vector2(mouse.X + 10, mouse.Y);
-                            Vector2 c = new Vector2(mouse.X, mouse.Y - 10);
-                            Vector2 d = new Vector2(mouse.X, mouse.Y + 10);
+                            float transformedMouseX = mouse.X;
+                            float transformedMouseY = mouse.Y;
+                            Vector2 a = new Vector2(transformedMouseX - 10, transformedMouseY);
+                            Vector2 b = new Vector2(transformedMouseX + 10, transformedMouseY);
+                            Vector2 c = new Vector2(transformedMouseX, transformedMouseY - 10);
+                            Vector2 d = new Vector2(transformedMouseX, transformedMouseY + 10);
                             device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, a, b, 3, ColorRgba.White));
                             device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, c, d, 3, ColorRgba.White));
 
@@ -967,7 +962,10 @@ namespace YMR.ComplexBody.Core
                                             }
                                         }
 
-                                        points[selectedPointId] = new Vector2(mouse.X, mouse.Y);
+                                        transformedMouseX = mouse.X - trans.Pos.X;
+                                        transformedMouseY = mouse.Y - trans.Pos.Y;
+                                        TransformPoint(trans, ref transformedMouseX, ref transformedMouseY, false, true, true, false, true);
+                                        points[selectedPointId] = new Vector2(transformedMouseX, transformedMouseY);
                                         UpdateBody(true);
                                     }
                                     else if (!ctrlPressed) // Add point
