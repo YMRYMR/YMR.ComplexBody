@@ -276,22 +276,27 @@ namespace YMR.ComplexBody.Core
 
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color)
         {
+            return GetCircle(device, point, radius, color, 8);
+        }
+        private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments)
+        {
             Vector3 tempPos = new Vector3(point, trans.Pos.Z);
             float tempScale = 1f;
             device.PreprocessCoords(ref tempPos, ref tempScale);
-            float angleStep = MathF.RadAngle360 / 8f;
-            VertexC1P3T2[] vertices = new VertexC1P3T2[10];
+            float angleStep = MathF.RadAngle360 / (float)segments;
+            int t = segments + 2;
+            VertexC1P3T2[] vertices = new VertexC1P3T2[t];
             vertices[0].Pos = tempPos;
             vertices[0].Color = color;
             float pointAngle = 0f;
-            for (int j = 1; j < 10; j++)
+            for (int i = 1; i < t; i++)
             {
                 float sin = (float)Math.Sin(pointAngle);
                 float cos = (float)Math.Cos(pointAngle);
-                vertices[j].Pos.X = tempPos.X + sin * radius;
-                vertices[j].Pos.Y = tempPos.Y - cos * radius;
-                vertices[j].Pos.Z = tempPos.Z;
-                vertices[j].Color = color;
+                vertices[i].Pos.X = tempPos.X + sin * radius;
+                vertices[i].Pos.Y = tempPos.Y - cos * radius;
+                vertices[i].Pos.Z = tempPos.Z;
+                vertices[i].Color = color;
                 pointAngle += angleStep;
             }
             return vertices;
@@ -587,10 +592,10 @@ namespace YMR.ComplexBody.Core
 
                     int t = points.Count;
 
-                    // Double check for added points
+                    // Double check for added/removed points
                     if (borderInfo == null || t != borderInfo.Length)
                     {
-                        UpdateBody();
+                        UpdateBody(true);
                         t = points.Count;
                         if (borderInfo == null || t != borderInfo.Length)
                         {
@@ -604,15 +609,15 @@ namespace YMR.ComplexBody.Core
                     ColorRgba mainColor = this.sharedMaterial.Res.MainColor;
                     ColorRgba borderColor = this.borderMaterial.Res.MainColor;
 
-                    Rect boundingRect = points.BoundingBox();
-                    TransformPoint(trans, ref boundingRect.X, ref boundingRect.Y);
-                    TransformPoint(trans, ref boundingRect.W, ref boundingRect.H);
-
                     if (cutPolygon != null && points.Count > 2)
                     {
                         // Main Texture
                         if (showMaterial || showPolygons)
                         {
+                            Rect boundingRect = points.BoundingBox();
+                            TransformPoint(trans, ref boundingRect.X, ref boundingRect.Y);
+                            TransformPoint(trans, ref boundingRect.W, ref boundingRect.H);
+
                             int tPol = cutPolygon.NumberOfPolygons;
                             for (int i = 0; i < tPol; i++)
                             {
@@ -620,9 +625,9 @@ namespace YMR.ComplexBody.Core
                                 int nPoints = cutPolygon.Polygons(i).Length;
                                 Vector2[] tempArray = new Vector2[]
                                 {
-                            new Vector2((int)cutPolygon.Polygons(i)[0].X, (int)cutPolygon.Polygons(i)[0].Y),
-                            new Vector2((int)cutPolygon.Polygons(i)[1].X, (int)cutPolygon.Polygons(i)[1].Y),
-                            new Vector2((int)cutPolygon.Polygons(i)[2].X, (int)cutPolygon.Polygons(i)[2].Y)
+                                    new Vector2((int)cutPolygon.Polygons(i)[0].X, (int)cutPolygon.Polygons(i)[0].Y),
+                                    new Vector2((int)cutPolygon.Polygons(i)[1].X, (int)cutPolygon.Polygons(i)[1].Y),
+                                    new Vector2((int)cutPolygon.Polygons(i)[2].X, (int)cutPolygon.Polygons(i)[2].Y)
                                 };
                                 TransformPoint(trans, ref tempArray[0].X, ref tempArray[0].Y);
                                 TransformPoint(trans, ref tempArray[1].X, ref tempArray[1].Y);
@@ -637,11 +642,11 @@ namespace YMR.ComplexBody.Core
                                     float w = (localRect.X + localRect.W) * ratioX;
                                     float h = (localRect.Y + localRect.H) * ratioY;
                                     Vector2[] texCoord = new Vector2[] {
-                                new Vector2(x, y),
-                                new Vector2(w, y),
-                                new Vector2(w, h),
-                                new Vector2(x, h)
-                            };
+                                        new Vector2(x, y),
+                                        new Vector2(w, y),
+                                        new Vector2(w, h),
+                                        new Vector2(x, h)
+                                    };
                                     device.AddVertices(sharedMaterial, VertexMode.TriangleFan, GetPoly(device, tempArray, mainColor));
                                 }
                                 if (showPolygons)
@@ -795,43 +800,31 @@ namespace YMR.ComplexBody.Core
                                 if (selectedPointId == -1) selectedPointId = i;
                             }
 
+                            int segments = ctrlPressed ? 4 : 8;
+                            float radius = ctrlPressed ? lineWidth * 4f + 1f : lineWidth * 4f;
                             if (i == selectedPointId)
                             {
-                                if (ctrlPressed)
-                                {
-                                    Vector2[] vertices = new Vector2[] {
-                                new Vector2(point.X - lineWidth * 4f, point.Y - lineWidth * 4f),
-                                new Vector2(point.X + lineWidth * 4f, point.Y - lineWidth * 4f),
-                                new Vector2(point.X + lineWidth * 4f, point.Y + lineWidth * 4f),
-                                new Vector2(point.X - lineWidth * 4f, point.Y + lineWidth * 4f)
-                            };
-                                    for (int j = 0; j < 3; j++)
-                                    {
-                                        TransformPoint(trans, ref vertices[j].X, ref vertices[j].Y);
-                                    }
-                                    device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetPoly(device, vertices, ColorRgba.White));
-                                }
-                                else device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, lineWidth * 4f, ColorRgba.White));
+                                //if (ctrlPressed)
+                                //{
+                                //    Vector2[] vertices = new Vector2[] {
+                                //        new Vector2(point.X - lineWidth * 4f, point.Y - lineWidth * 4f),
+                                //        new Vector2(point.X + lineWidth * 4f, point.Y - lineWidth * 4f),
+                                //        new Vector2(point.X + lineWidth * 4f, point.Y + lineWidth * 4f),
+                                //        new Vector2(point.X - lineWidth * 4f, point.Y + lineWidth * 4f)
+                                //    };
+                                //    for (int j = 0; j < 3; j++)
+                                //    {
+                                //        TransformPoint(trans, ref vertices[j].X, ref vertices[j].Y);
+                                //    }
+                                //    device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetPoly(device, vertices, ColorRgba.White));
+                                //}
+                                if (ctrlPressed) device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.White, segments));
+                                else device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.White, segments));
                             }
                             else
                             {
-                                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, lineWidth * 4f + 1, ColorRgba.White));
-                                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, lineWidth * 4f, ColorRgba.Black));
-                            }
-
-                            // Snap lines
-                            if (ctrlPressed)
-                            {
-                                //Vector2 vXY = device.TargetSize;
-                                //Vector2 a = new Vector2(0f, borderPoly[1].Y)
-
-                                //device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, a, b, lineWidth * 8f, ColorRgba.White));
-
-                                //canvas.PushState();
-                                //canvas.State.ColorTint = new ColorRgba(255, 255, 255, 50);
-                                //canvas.DrawLine(transformedSnapXMin, transformedY, transformedSnapXMax, transformedY);
-                                //canvas.DrawLine(transformedX, transformedSnapYMax, transformedX, transformedSnapYMin);
-                                //canvas.PopState();
+                                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius + 1, ColorRgba.White, segments));
+                                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.Black, segments));
                             }
                         }
 
