@@ -450,7 +450,7 @@ namespace YMR.ComplexBody.Core
                     BorderInfo bi = borderInfo[i].Clone();
 
                     // Border and points
-                    if (borderMaterial || borderGeometry)
+                    if (borderMaterial || borderGeometry || dummies)
                     {
                         Vector2 p0, p1;
                         p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
@@ -496,11 +496,10 @@ namespace YMR.ComplexBody.Core
                                 GetLine(device, bi.innerA, bi.innerB, lineWidth, borderGeometryColor)
                             });
                         }
-                    }
 
-                    if (dummies)
-                    {
-                        vertexInfo.dummies.AddRange(new[] {
+                        if (dummies)
+                        {
+                            vertexInfo.dummies.AddRange(new[] {
                             GetCircle(device, bi.outerCenter, lineWidth * 2f, dummyColor),
                             GetCircle(device, bi.innerCenter, lineWidth * 2f, dummyColor),
                             GetCircle(device, bi.dummyInnerA, lineWidth * 2f, dummyColor),
@@ -512,6 +511,7 @@ namespace YMR.ComplexBody.Core
                             GetLine(device, bi.outerCenter, bi.innerCenter, lineWidth, dummyColor),
                             GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor)
                         });
+                        }
                     }
                 }
 
