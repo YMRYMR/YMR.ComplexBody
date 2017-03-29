@@ -184,7 +184,7 @@ namespace YMR.ComplexBody.Core
         private bool showPolygons = true;
         private bool showMaterial = true;
         private bool updatableUsingMouse = true;
-        private ContentRef<Material> sharedMaterial = Material.Checkerboard;
+        private ContentRef<Material> mainMaterial = Material.Checkerboard;
         private ContentRef<Material> borderMaterial = Material.Checkerboard;
         private float borderWidth = 2;
         private float lineWidth = 2;
@@ -195,6 +195,7 @@ namespace YMR.ComplexBody.Core
         private BoderMode borderType = BoderMode.Inside;
         private Camera camera3D = null;
         private bool borderTexFlip = false;
+        private bool staticMainMaterial = false;
 
         #endregion
 
@@ -211,7 +212,7 @@ namespace YMR.ComplexBody.Core
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; vertexInfo.discarded = true; } }
         public bool ShowMaterial { get { return showMaterial; } set { showMaterial = value; vertexInfo.discarded = true; } }
         public bool UpdatableUsingMouse { get { return updatableUsingMouse; } set { updatableUsingMouse = value; } }
-        public ContentRef<Material> SharedMaterial { get { return sharedMaterial; } set { sharedMaterial = value; } }
+        public ContentRef<Material> MainMaterial { get { return mainMaterial; } set { mainMaterial = value; } }
         public ContentRef<Material> BorderMaterial { get { return borderMaterial; } set { borderMaterial = value; } }
         public float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
         public float BorderWidth { get { return borderWidth; } set { borderWidth = value; UpdateBody(true); } }
@@ -221,6 +222,7 @@ namespace YMR.ComplexBody.Core
         public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; vertexInfo.discarded = true; } }
         public BodyShapeMode ShapeMode { get { return shapeMode; } set { shapeMode = value; UpdateBody(true); } }
         public BoderMode BorderType { get { return borderType; } set { borderType = value; UpdateBody(true); } }
+        public bool StaticMainMaterial { get { return staticMainMaterial; } set { staticMainMaterial = value; } }
         /// <summary>
         /// If set, the 3D effect will use the camera as center point.
         /// </summary>
@@ -396,18 +398,13 @@ namespace YMR.ComplexBody.Core
                     }
                 }
 
-                Texture mainTex = this.sharedMaterial.Res.MainTexture.Res;
+                Texture mainTex = this.mainMaterial.Res.MainTexture.Res;
                 Texture borderTex = this.borderMaterial.Res.MainTexture.Res;
-                ColorRgba mainColor = this.sharedMaterial.Res.MainColor;
+                ColorRgba mainColor = this.mainMaterial.Res.MainColor;
                 ColorRgba borderColor = this.borderMaterial.Res.MainColor;
 
                 if ((material || polygons) && cutPolygon != null && points.Count > 2)
                 {
-                    // Main Texture
-                    Rect boundingRect = points.BoundingBox();
-                    TransformPoint(trans, ref boundingRect.X, ref boundingRect.Y);
-                    TransformPoint(trans, ref boundingRect.W, ref boundingRect.H);
-
                     int tPol = cutPolygon.NumberOfPolygons;
                     for (int i = 0; i < tPol; i++)
                     {
@@ -429,8 +426,8 @@ namespace YMR.ComplexBody.Core
                             Vector2[] texCoord = new Vector2[3];
                             for (int j = 0; j < 3; j++)
                             {
-                                float x = tempArray[j].X * ratioX;
-                                float y = tempArray[j].Y * ratioY;
+                                float x = (tempArray[j].X - (staticMainMaterial ? 0 : trans.Pos.X)) * ratioX;
+                                float y = (tempArray[j].Y - (staticMainMaterial ? 0 : trans.Pos.Y)) * ratioY;
                                 texCoord[j] = new Vector2(x, y);
                             }
 
@@ -843,7 +840,7 @@ namespace YMR.ComplexBody.Core
                         }
                     }
 
-                    Texture mainTex = this.sharedMaterial.Res.MainTexture.Res;
+                    Texture mainTex = this.mainMaterial.Res.MainTexture.Res;
                     Texture borderTex = this.borderMaterial.Res.MainTexture.Res;
 
                     // Change this line to allow vertex cache
@@ -861,7 +858,7 @@ namespace YMR.ComplexBody.Core
                     {
                         foreach(VertexC1P3T2[] vi in vertexInfo.material)
                         {
-                            device.AddVertices(sharedMaterial, VertexMode.TriangleFan, vi);
+                            device.AddVertices(mainMaterial, VertexMode.TriangleFan, vi);
                         }
                     }
                     if (showBorderMaterial)
@@ -1050,7 +1047,7 @@ namespace YMR.ComplexBody.Core
 
             target.polygonColor = this.polygonColor;
             target.borderWidth = this.borderWidth;
-            target.sharedMaterial = this.sharedMaterial;
+            target.mainMaterial = this.mainMaterial;
             target.borderMaterial = this.borderMaterial;
             target.points = new List<Vector2>(this.points.ToArray());
             target.showBorderMaterial = this.showBorderMaterial;
@@ -1066,6 +1063,8 @@ namespace YMR.ComplexBody.Core
             target.borderType = this.borderType;
             target.camera3D = this.camera3D;
             target.showLimits = this.showLimits;
+            target.borderTexFlip = this.borderTexFlip;
+            target.staticMainMaterial = this.staticMainMaterial;
             target.UpdateBody(true);
         }
     }
