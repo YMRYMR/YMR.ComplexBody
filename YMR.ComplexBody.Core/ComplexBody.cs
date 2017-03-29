@@ -411,29 +411,37 @@ namespace YMR.ComplexBody.Core
                         int nPoints = cutPolygon.Polygons(i).Length;
                         Vector2[] tempArray = new Vector2[]
                         {
-                                new Vector2((int)cutPolygon.Polygons(i)[0].X, (int)cutPolygon.Polygons(i)[0].Y),
-                                new Vector2((int)cutPolygon.Polygons(i)[1].X, (int)cutPolygon.Polygons(i)[1].Y),
-                                new Vector2((int)cutPolygon.Polygons(i)[2].X, (int)cutPolygon.Polygons(i)[2].Y)
+                            new Vector2((int)cutPolygon.Polygons(i)[0].X, (int)cutPolygon.Polygons(i)[0].Y),
+                            new Vector2((int)cutPolygon.Polygons(i)[1].X, (int)cutPolygon.Polygons(i)[1].Y),
+                            new Vector2((int)cutPolygon.Polygons(i)[2].X, (int)cutPolygon.Polygons(i)[2].Y)
                         };
                         TransformPoint(trans, ref tempArray[0].X, ref tempArray[0].Y);
                         TransformPoint(trans, ref tempArray[1].X, ref tempArray[1].Y);
                         TransformPoint(trans, ref tempArray[2].X, ref tempArray[2].Y);
                         if (material)
                         {
-                            Rect localRect = AABB(tempArray);
-                            float ratioX = 1f / (boundingRect.W - boundingRect.X);
-                            float ratioY = 1f / (boundingRect.H - boundingRect.Y);
-                            float x = localRect.X * ratioX;
-                            float y = localRect.Y * ratioY;
-                            float w = (localRect.X + localRect.W) * ratioX;
-                            float h = (localRect.Y + localRect.H) * ratioY;
-                            Vector2[] texCoord = new Vector2[] {
-                                    new Vector2(x, y),
-                                    new Vector2(w, y),
-                                    new Vector2(w, h),
-                                    new Vector2(x, h)
-                                };
-                            vertexInfo.material.Add(GetPoly(device, tempArray, mainColor));
+                            float ratioX = 1f / mainTex.Size.X;
+                            float ratioY = 1f / mainTex.Size.Y;
+                            Vector2[] texCoord = new Vector2[3];
+                            for (int j = 0; j < 3; j++)
+                            {
+                                float x = tempArray[j].X * ratioX;
+                                float y = tempArray[j].Y * ratioY;
+                                texCoord[j] = new Vector2(x, y);
+                            }
+                            //Rect localRect = AABB(tempArray);
+                            //float x = localRect.X * ratioX;
+                            //float y = localRect.Y * ratioY;
+                            //float w = (localRect.X + localRect.W) * ratioX;
+                            //float h = (localRect.Y + localRect.H) * ratioY;
+                            //Vector2[] texCoord = new Vector2[] {
+                            //        new Vector2(x, y),
+                            //        new Vector2(w, y),
+                            //        new Vector2(w, h),
+                            //        new Vector2(x, h)
+                            //    };
+
+                            vertexInfo.material.Add(GetPoly(device, tempArray, mainColor, texCoord));
                         }
                         if (polygons)
                         {

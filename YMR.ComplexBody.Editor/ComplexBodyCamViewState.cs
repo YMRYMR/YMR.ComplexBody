@@ -85,6 +85,15 @@ namespace YMR.ComplexBody.Editor
             // Register events
             DualityEditorApp.SelectionChanged += this.DualityEditorApp_SelectionChanged;
             DualityEditorApp.ObjectPropertyChanged += this.DualityEditorApp_ObjectPropertyChanged;
+
+            GameObject gameObj = DualityEditorApp.Selection.GameObjects.Where(x => x.GetComponent<Core.ComplexBody>() != null).FirstOrDefault();
+            if (gameObj != null)
+            {
+                selectedBody = gameObj.GetComponent<Core.ComplexBody>();
+                selectedBody.IsSelected = true;
+            }
+            this.View.Refresh();
+            this.View.Focus();
         }
 
         private void BtnCenterInObj_Click(object sender, EventArgs e)
@@ -142,24 +151,13 @@ namespace YMR.ComplexBody.Editor
             base.OnLeaveState();
             this.View.SetToolbarCamSettingsEnabled(true);
             this.CameraObj.Active = true;
-        }
-        //protected override void OnRenderState()
-        //{
-        //    base.OnRenderState();
-            
-        //    //// Render game pov
-        //    //Rect viewportRect = new Rect(this.ClientSize.Width, this.ClientSize.Height);
-        //    //if (!Scene.Current.FindComponents<Camera>().Any()) DrawDevice.RenderVoid(viewportRect);
-        //    //else DualityApp.Render(viewportRect);
-        //}
-        //protected override void OnCollectStateWorldOverlayDrawcalls(Canvas canvas)
-        //{
-        //    base.OnCollectStateWorldOverlayDrawcalls(canvas);
 
-        //    //GameObject selGameObj = this.selectedBody != null ? this.selectedBody.GameObj : null;
-        //    //Transform selTransform = selGameObj != null ? selGameObj.Transform : null;
-        //    //if (selTransform == null) return;
-        //}
+            if (selectedBody != null)
+            {
+                selectedBody.IsSelected = false;
+                selectedBody = null;
+            }
+        }
 
         private void DualityEditorApp_ObjectPropertyChanged(object sender, ObjectPropertyChangedEventArgs e)
         {
@@ -177,10 +175,10 @@ namespace YMR.ComplexBody.Editor
                 {
                     selectedBody = gameObj.GetComponent<Core.ComplexBody>();
                     selectedBody.IsSelected = true;
-                    this.View.Refresh();
-                    this.View.Focus();
                 }
             }
+            this.View.Refresh();
+            this.View.Focus();
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
