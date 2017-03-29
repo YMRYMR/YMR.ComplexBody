@@ -770,6 +770,16 @@ namespace YMR.ComplexBody.Core
                         device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)));
                         device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)));
                         device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)));
+
+                        // Snap lines
+                        if (isSelected && ctrlPressed)
+                        {
+                            for (int i = 0; i < t; i++)
+                            {
+                                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(min.X, borderInfo[i].outerB.Y), new Vector2(max.X, borderInfo[i].outerB.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)));
+                                device.AddVertices(Material.SolidWhite, VertexMode.Quads, GetLine(device, new Vector2(borderInfo[i].outerB.X, min.Y), new Vector2(borderInfo[i].outerB.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)));
+                            }
+                        }
                     }
 
                     if (isSelected)
