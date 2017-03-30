@@ -343,10 +343,10 @@ namespace YMR.ComplexBody.Core
             Vector2 right2 = dir.PerpendicularRight * width * 0.5f * tempScale;
             VertexC1P3T2[] vertices = new VertexC1P3T2[]
             {
-                new VertexC1P3T2() { Pos = tempPosA + new Vector3(left), Color = color },
-                new VertexC1P3T2() { Pos = tempPosB + new Vector3(left2), Color = color },
-                new VertexC1P3T2() { Pos = tempPosB + new Vector3(right2), Color = color },
-                new VertexC1P3T2() { Pos = tempPosA + new Vector3(right), Color = color }
+                new VertexC1P3T2() { Pos = tempPosA + new Vector3(left, tempPosA.Z), Color = color },
+                new VertexC1P3T2() { Pos = tempPosB + new Vector3(left2, tempPosB.Z), Color = color },
+                new VertexC1P3T2() { Pos = tempPosB + new Vector3(right2, tempPosB.Z), Color = color },
+                new VertexC1P3T2() { Pos = tempPosA + new Vector3(right, tempPosA.Z), Color = color }
             };
             return vertices;
         }
@@ -367,6 +367,7 @@ namespace YMR.ComplexBody.Core
             {
                 vertices[i].Pos.X = points[i].X * tempScale + tempPos.X;
                 vertices[i].Pos.Y = points[i].Y * tempScale + tempPos.Y;
+                vertices[i].Pos.Z = tempPos.Z;
                 vertices[i].TexCoord.X = texCoord[i].X;
                 vertices[i].TexCoord.Y = texCoord[i].Y;
                 vertices[i].Color = color;
@@ -859,7 +860,7 @@ namespace YMR.ComplexBody.Core
 
                     if (showMaterial) // Main Texture
                     {
-                        foreach(VertexC1P3T2[] vi in vertexInfo.material)
+                        foreach (VertexC1P3T2[] vi in vertexInfo.material)
                         {
                             device.AddVertices(mainMaterial, VertexMode.TriangleFan, vi);
                         }
@@ -1070,6 +1071,6 @@ namespace YMR.ComplexBody.Core
             target.staticPosMainMaterial = this.staticPosMainMaterial;
             target.staticAngleMainMaterial = this.staticAngleMainMaterial;
             target.UpdateBody(true);
-        }
+        } 
     }
 }
