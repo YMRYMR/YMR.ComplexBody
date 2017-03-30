@@ -195,7 +195,8 @@ namespace YMR.ComplexBody.Core
         private BoderMode borderType = BoderMode.Inside;
         private Camera camera3D = null;
         private bool borderTexFlip = false;
-        private bool staticMainMaterial = false;
+        private bool staticPosMainMaterial = false;
+        private bool staticAngleMainMaterial = false;
 
         #endregion
 
@@ -222,7 +223,8 @@ namespace YMR.ComplexBody.Core
         public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; vertexInfo.discarded = true; } }
         public BodyShapeMode ShapeMode { get { return shapeMode; } set { shapeMode = value; UpdateBody(true); } }
         public BoderMode BorderType { get { return borderType; } set { borderType = value; UpdateBody(true); } }
-        public bool StaticMainMaterial { get { return staticMainMaterial; } set { staticMainMaterial = value; } }
+        public bool StaticPosMainMaterial { get { return staticPosMainMaterial; } set { staticPosMainMaterial = value; } }
+        public bool StaticAngleMainMaterial { get { return staticAngleMainMaterial; } set { staticAngleMainMaterial = value; } }
         /// <summary>
         /// If set, the 3D effect will use the camera as center point.
         /// </summary>
@@ -426,8 +428,9 @@ namespace YMR.ComplexBody.Core
                             Vector2[] texCoord = new Vector2[3];
                             for (int j = 0; j < 3; j++)
                             {
-                                float x = (tempArray[j].X - (staticMainMaterial ? 0 : trans.Pos.X)) * ratioX;
-                                float y = (tempArray[j].Y - (staticMainMaterial ? 0 : trans.Pos.Y)) * ratioY;
+                                float x = (tempArray[j].X - (staticPosMainMaterial ? 0 : trans.Pos.X)) * ratioX;
+                                float y = (tempArray[j].Y - (staticPosMainMaterial ? 0 : trans.Pos.Y)) * ratioY;
+                                if(!staticAngleMainMaterial) TransformPoint(trans, ref x, ref y, false, true, false, false, true);
                                 texCoord[j] = new Vector2(x, y);
                             }
 
@@ -806,7 +809,7 @@ namespace YMR.ComplexBody.Core
 
             return ret;
         }
-
+        
         public void Draw(IDrawDevice device)
         {
             if (!working)
@@ -1064,7 +1067,8 @@ namespace YMR.ComplexBody.Core
             target.camera3D = this.camera3D;
             target.showLimits = this.showLimits;
             target.borderTexFlip = this.borderTexFlip;
-            target.staticMainMaterial = this.staticMainMaterial;
+            target.staticPosMainMaterial = this.staticPosMainMaterial;
+            target.staticAngleMainMaterial = this.staticAngleMainMaterial;
             target.UpdateBody(true);
         }
     }
