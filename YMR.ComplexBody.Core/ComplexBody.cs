@@ -464,20 +464,13 @@ namespace YMR.ComplexBody.Core
                         if (camera3D != null)
                         {
                             Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
-                            if (borderType == BoderMode.Inside)
-                            {
-                                bi.innerA = new Vector2(bi.innerA.X - (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
-                                                        bi.innerA.Y - (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
-                                bi.innerB = new Vector2(bi.innerB.X - (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
-                                                        bi.innerB.Y - (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
-                            }
-                            else // Outside
-                            {
-                                bi.innerA = new Vector2(bi.innerA.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
-                                                        bi.innerA.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
-                                bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camTrans.Pos.X) / MathF.Abs(camTrans.Pos.Z * .01f),
-                                                        bi.innerB.Y + (trans.Pos.Y - camTrans.Pos.Y) / MathF.Abs(camTrans.Pos.Z * .01f));
-                            }
+                            float camX = borderType == BoderMode.Inside ? camTrans.Pos.X : -camTrans.Pos.X;
+                            float camY = borderType == BoderMode.Inside ? camTrans.Pos.Y : -camTrans.Pos.Y;
+                            TransformPoint(trans, ref camX, ref camY, false, true, true, false, true, true);
+                            bi.innerA = new Vector2(bi.innerA.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
+                                                    bi.innerA.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
+                            bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
+                                                    bi.innerB.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
                         }
                         renderedBorderInfo[i] = bi;
 
