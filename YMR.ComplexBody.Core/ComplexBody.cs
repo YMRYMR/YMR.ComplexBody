@@ -60,6 +60,7 @@ namespace YMR.ComplexBody.Core
             public Vector2 innerB;
             public Vector2 innerCenter;
             public Vector2 center;
+            public Vector2 cornerCenter;
             public float distanceAB;
             public float distanceAA;
             public float distanceBB;
@@ -78,7 +79,7 @@ namespace YMR.ComplexBody.Core
             {
                 get
                 {
-                    return new Vector2[] { outerA, outerB, outerCenter, dummyInnerA, dummyInnerB, innerA, innerB, innerCenter, center };
+                    return new Vector2[] { outerA, outerB, outerCenter, dummyInnerA, dummyInnerB, innerA, innerB, innerCenter, center, cornerCenter };
                 }
                 set
                 {
@@ -91,6 +92,7 @@ namespace YMR.ComplexBody.Core
                     innerB = value[6];
                     innerCenter = value[7];
                     center = value[8];
+                    cornerCenter = value[9];
                 }
             }
             public float[] AllFloats
@@ -189,12 +191,13 @@ namespace YMR.ComplexBody.Core
         private ColorRgba polygonColor = new ColorRgba(255, 0, 0, 200);
         private ColorRgba borderGeometryColor = new ColorRgba(0, 255, 0, 200);
         private ColorRgba dummyColor = new ColorRgba(0, 0, 255, 200);
+        private ColorRgba cornerColor = new ColorRgba(200, 0, 200, 200);
         private BodyShapeMode shapeMode = BodyShapeMode.Triangulation;
         private BoderMode borderType = BoderMode.Inside;
-        private Camera camera3D = null;
         private bool borderTexFlip = false;
         private bool staticPosMainMaterial = false;
         private bool staticAngleMainMaterial = false;
+        private int cornerSegments = 0;
 
         #endregion
 
@@ -218,16 +221,14 @@ namespace YMR.ComplexBody.Core
         public float LineWidth { get { return lineWidth; } set { lineWidth = value; vertexInfo.discarded = true; } }
         public ColorRgba PolygonColor { get { return polygonColor; } set { polygonColor = value; vertexInfo.discarded = true; } }
         public ColorRgba DummyColor { get { return dummyColor; } set { dummyColor = value; vertexInfo.discarded = true; } }
+        public ColorRgba CornerColor { get { return cornerColor; } set { cornerColor = value; vertexInfo.discarded = true; } }
         public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; vertexInfo.discarded = true; } }
         public BodyShapeMode ShapeMode { get { return shapeMode; } set { shapeMode = value; UpdateBody(true); } }
         public BoderMode BorderType { get { return borderType; } set { borderType = value; UpdateBody(true); } }
         public bool StaticPosMainMaterial { get { return staticPosMainMaterial; } set { staticPosMainMaterial = value; } }
         public bool StaticAngleMainMaterial { get { return staticAngleMainMaterial; } set { staticAngleMainMaterial = value; } }
-        /// <summary>
-        /// If set, the 3D effect will use the camera as center point.
-        /// </summary>
-        public Camera Camera3D { get { return camera3D; } set { camera3D = value; UpdateBody(true); } }
         public bool BorderTexFlip { get { return borderTexFlip; } set { borderTexFlip = value; vertexInfo.discarded = true; } }
+        public int CornerSegments { get { return cornerSegments; } set { cornerSegments = value; vertexInfo.discarded = true; } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool CtrlPressed { get { return ctrlPressed; } set { ctrlPressed = value; } }
@@ -433,7 +434,6 @@ namespace YMR.ComplexBody.Core
                     }
                 }
 
-                //BorderInfo[] renderedBorderInfo = new BorderInfo[t];
                 for (int i = 0; i < t; i++)
                 {
                     BorderInfo bi = borderInfo[i].Clone();
@@ -441,26 +441,7 @@ namespace YMR.ComplexBody.Core
                     // Border and points
                     if (borderMaterial || borderGeometry || dummies)
                     {
-                        Vector2 p0, p1;
-                        p0 = new Vector2(MathF.RoundToInt(points[i].X), MathF.RoundToInt(points[i].Y));
-                        if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
-                        else p1 = new Vector2(points[0].X, points[0].Y);
-
-                        //if (camera3D != null)
-                        //{
-                        //    Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
-                        //    float camX = borderType == BoderMode.Inside ? camTrans.Pos.X : -camTrans.Pos.X;
-                        //    float camY = borderType == BoderMode.Inside ? camTrans.Pos.Y : -camTrans.Pos.Y;
-                        //    TransformPoint(trans, ref camX, ref camY, false, true, true, false, true, true);
-                        //    bi.innerA = new Vector2(bi.innerA.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
-                        //                            bi.innerA.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
-                        //    bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
-                        //                            bi.innerB.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
-                        //}
-                        //renderedBorderInfo[i] = bi;
-
                         Vector2[] borderPoly = bi.Polygon;
-                        //bi.Transform(trans);
 
                         if (borderMaterial)
                         {
@@ -489,18 +470,14 @@ namespace YMR.ComplexBody.Core
                                 GetCircle(device, bi.innerA, lineWidth * 2f, dummyColor),
                                 GetCircle(device, bi.innerB, lineWidth * 2f, dummyColor),
                                 GetCircle(device, bi.center, lineWidth * 2f, dummyColor),
-
                                 GetLine(device, bi.outerCenter, bi.innerCenter, lineWidth, dummyColor),
-                                GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor)
+                                GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor),
+                                // Corners
+                                GetCircle(device, bi.cornerCenter, lineWidth * 2f, cornerColor),
                             });
                         }
                     }
                 }
-
-                //if (camera3D != null) // We update the RigidBody's shapes only if the borderInfo has been modified at render time (pseudo 3D camera effect must affect the shapes)
-                //{
-                //    UpdateShapes(renderedBorderInfo);
-                //}
             }
             catch (Exception ex) { }
 
@@ -642,6 +619,11 @@ namespace YMR.ComplexBody.Core
                                         tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
                                         out crossX, out crossY, true);
                     borderInfo[i].innerB = new Vector2(crossX, crossY);
+
+                    float angle = MathF.Angle(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, crossX, crossY) + MathF.RadAngle90;
+                    float dist = MathF.Distance(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, crossX, crossY);
+
+                    borderInfo[i].cornerCenter = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
                 }
 
                 UpdateShapes();
@@ -761,7 +743,6 @@ namespace YMR.ComplexBody.Core
                     Texture borderTex = this.borderMaterial.Res.MainTexture.Res;
                     
                     if (this.vertexInfo == null || this.vertexInfo.discarded) CreateVertices(device);
-                    //else if (camera3D != null) CreateVertices(device, false, true, false, true, false, true);
 
                     VertexInfo vertexInfo = this.vertexInfo.DeepClone();
                     Transform camTr = this.GameObj.ParentScene.FindComponent<Camera>()?.GameObj.GetComponent<Transform>();
@@ -1080,11 +1061,11 @@ namespace YMR.ComplexBody.Core
             target.dummyColor = this.dummyColor;
             target.shapeMode = this.shapeMode;
             target.borderType = this.borderType;
-            target.camera3D = this.camera3D;
             target.showLimits = this.showLimits;
             target.borderTexFlip = this.borderTexFlip;
             target.staticPosMainMaterial = this.staticPosMainMaterial;
             target.staticAngleMainMaterial = this.staticAngleMainMaterial;
+            target.cornerSegments = this.cornerSegments;
             target.UpdateBody(true);
         } 
     }
