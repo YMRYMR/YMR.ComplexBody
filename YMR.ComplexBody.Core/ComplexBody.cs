@@ -61,11 +61,16 @@ namespace YMR.ComplexBody.Core
             public Vector2 innerCenter;
             public Vector2 center;
             public Vector2 cornerCenter;
+            public Vector2 cornerA;
+            public Vector2 cornerB;
+            public Vector2 cornerACenter;
+            public Vector2 cornerBCenter;
             public float distanceAB;
             public float distanceAA;
             public float distanceBB;
             public float distanceCenterCenter;
             public float angle;
+            public float cornerRadius;
 
             public Vector2[] Polygon
             {
@@ -79,7 +84,7 @@ namespace YMR.ComplexBody.Core
             {
                 get
                 {
-                    return new Vector2[] { outerA, outerB, outerCenter, dummyInnerA, dummyInnerB, innerA, innerB, innerCenter, center, cornerCenter };
+                    return new Vector2[] { outerA, outerB, outerCenter, dummyInnerA, dummyInnerB, innerA, innerB, innerCenter, center, cornerCenter, cornerA, cornerB, cornerACenter, cornerBCenter };
                 }
                 set
                 {
@@ -93,13 +98,17 @@ namespace YMR.ComplexBody.Core
                     innerCenter = value[7];
                     center = value[8];
                     cornerCenter = value[9];
+                    cornerA = value[10];
+                    cornerB = value[11];
+                    cornerACenter = value[12];
+                    cornerBCenter = value[13];
                 }
             }
             public float[] AllFloats
             {
                 get
                 {
-                    return new float[] { distanceAB, distanceAA, distanceBB, distanceCenterCenter, angle };
+                    return new float[] { distanceAB, distanceAA, distanceBB, distanceCenterCenter, angle, cornerRadius };
                 }
                 set
                 {
@@ -108,6 +117,7 @@ namespace YMR.ComplexBody.Core
                     distanceBB = value[2];
                     distanceCenterCenter = value[3];
                     angle = value[4];
+                    cornerRadius = value[5];
                 }
             }
 
@@ -474,6 +484,12 @@ namespace YMR.ComplexBody.Core
                                 GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor),
                                 // Corners
                                 GetCircle(device, bi.cornerCenter, lineWidth * 2f, cornerColor),
+                                GetCircle(device, bi.cornerA, lineWidth * 2f, cornerColor),
+                                GetCircle(device, bi.cornerB, lineWidth * 2f, cornerColor),
+                                GetCircle(device, bi.cornerACenter, lineWidth * 2f, cornerColor),
+                                GetCircle(device, bi.cornerBCenter, lineWidth * 2f, cornerColor),
+                                GetLine(device, bi.cornerCenter, bi.cornerA, lineWidth, cornerColor),
+                                GetLine(device, bi.cornerCenter, bi.cornerB, lineWidth, cornerColor),
                             });
                         }
                     }
@@ -607,23 +623,36 @@ namespace YMR.ComplexBody.Core
                     float crossX, crossY; 
                     // Inner point A
                     MathF.LinesCross(tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y,
-                                        tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
-                                        tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
-                                        tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
-                                        out crossX, out crossY, true);
+                                     tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
+                                     tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
+                                     tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                     out crossX, out crossY, true);
                     borderInfo[i].innerA = new Vector2(crossX, crossY);
                     // Inner point B
                     MathF.LinesCross(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
-                                        tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
-                                        tempInnerLinePointsA[2].X, tempInnerLinePointsA[2].Y,
-                                        tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
-                                        out crossX, out crossY, true);
+                                     tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                     tempInnerLinePointsA[2].X, tempInnerLinePointsA[2].Y, 
+                                     tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
+                                     out crossX, out crossY, true);
                     borderInfo[i].innerB = new Vector2(crossX, crossY);
-
+                    // Corner
                     float angle = MathF.Angle(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, crossX, crossY) + MathF.RadAngle90;
-                    float dist = MathF.Distance(borderInfo[i].outerA.X, borderInfo[i].outerA.Y, crossX, crossY);
-
-                    borderInfo[i].cornerCenter = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
+                    Vector2 cornerCenter = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
+                    borderInfo[i].cornerCenter = cornerCenter;
+                    angle -= MathF.RadAngle90;
+                    Vector2 cornerA = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
+                    borderInfo[i].cornerA = cornerA;
+                    angle += MathF.RadAngle180;
+                    borderInfo[i].cornerB = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
+                    MathF.LinesCross(cornerCenter.X, cornerCenter.Y,
+                                     cornerA.X, cornerA.Y,
+                                     tempInnerLinePointsA[2].X, tempInnerLinePointsA[2].Y,
+                                     tempInnerLinePointsB[2].X, tempInnerLinePointsB[2].Y,
+                                     out crossX, out crossY, true);
+                    borderInfo[i].cornerACenter = new Vector2(crossX, crossY);
+                    borderInfo[i].cornerRadius = MathF.Distance(cornerCenter.X, cornerCenter.Y, crossX, crossY);
+                    angle = MathF.Angle(cornerCenter.X, cornerCenter.Y, crossX, crossY) + MathF.RadAngle180;
+                    borderInfo[i].cornerBCenter = new Vector2(cornerCenter.X + borderInfo[i].cornerRadius * MathF.Cos(angle), cornerCenter.Y + borderInfo[i].cornerRadius * MathF.Sin(angle));
                 }
 
                 UpdateShapes();
