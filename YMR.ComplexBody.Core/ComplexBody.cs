@@ -168,8 +168,6 @@ namespace YMR.ComplexBody.Core
         private CPolygonShape cutPolygon = null;
         [DontSerialize]
         private VertexInfo vertexInfo = new VertexInfo();
-        [DontSerialize]
-        private Transform lastTrans = null;
 
         private List<Vector2> points = new List<Vector2>()
         {
@@ -248,13 +246,15 @@ namespace YMR.ComplexBody.Core
 
         #region Vertex Methods
 
-        private static void TransformVertices(Transform trans, VertexC1P3T2[] vertices)
+        private static void TransformVertices(IDrawDevice device, Transform trans, VertexC1P3T2[] vertices)
         {
             int t = vertices.Length;
             for(int i = 0; i < t; i++)
             {
-                VertexC1P3T2 vertex = vertices[i];
-                TransformPoint(trans, ref vertex.Pos.X, ref vertex.Pos.Y);
+                TransformPoint(trans, ref vertices[i].Pos.X, ref vertices[i].Pos.Y);
+                vertices[i].Pos.Z = trans.Pos.Z;
+                float scale = trans.Scale;
+                device.PreprocessCoords(ref vertices[i].Pos, ref scale);
             }
         }
         private static void TransformPoint(Transform trans, ref float x, ref float y)
@@ -303,9 +303,7 @@ namespace YMR.ComplexBody.Core
         }
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments)
         {
-            Vector3 tempPos = new Vector3(point, trans.Pos.Z);
-            float tempScale = 1f;
-            device.PreprocessCoords(ref tempPos, ref tempScale);
+            Vector3 tempPos = new Vector3(point);
             float angleStep = MathF.RadAngle360 / (float)segments;
             int t = segments + 2;
             VertexC1P3T2[] vertices = new VertexC1P3T2[t];
@@ -318,7 +316,6 @@ namespace YMR.ComplexBody.Core
                 float cos = (float)Math.Cos(pointAngle);
                 vertices[i].Pos.X = tempPos.X + sin * radius;
                 vertices[i].Pos.Y = tempPos.Y - cos * radius;
-                vertices[i].Pos.Z = tempPos.Z;
                 vertices[i].Color = color;
                 pointAngle += angleStep;
             }
@@ -330,23 +327,19 @@ namespace YMR.ComplexBody.Core
         }
         private VertexC1P3T2[] GetLine(IDrawDevice device, Vector2 pointA, Vector2 pointB, float width, ColorRgba color, bool scaleWidth)
         {
-            Vector3 tempPosA = new Vector3(pointA, trans.Pos.Z);
-            Vector3 tempPosB = new Vector3(pointB, trans.Pos.Z);
-            float tempScale = 1f;
-            device.PreprocessCoords(ref tempPosA, ref tempScale);
-            device.PreprocessCoords(ref tempPosB, ref tempScale);
+            Vector3 tempPosA = new Vector3(pointA);
+            Vector3 tempPosB = new Vector3(pointB);
             Vector2 dir = (tempPosB.Xy - tempPosA.Xy).Normalized;
-            if (!scaleWidth) tempScale = 1f;
-            Vector2 left = dir.PerpendicularLeft * width * 0.5f * tempScale;
-            Vector2 right = dir.PerpendicularRight * width * 0.5f * tempScale;
-            Vector2 left2 = dir.PerpendicularLeft * width * 0.5f * tempScale;
-            Vector2 right2 = dir.PerpendicularRight * width * 0.5f * tempScale;
+            Vector2 left = dir.PerpendicularLeft * width * 0.5f;
+            Vector2 right = dir.PerpendicularRight * width * 0.5f;
+            Vector2 left2 = dir.PerpendicularLeft * width * 0.5f;
+            Vector2 right2 = dir.PerpendicularRight * width * 0.5f;
             VertexC1P3T2[] vertices = new VertexC1P3T2[]
             {
-                new VertexC1P3T2() { Pos = tempPosA + new Vector3(left, tempPosA.Z), Color = color },
-                new VertexC1P3T2() { Pos = tempPosB + new Vector3(left2, tempPosB.Z), Color = color },
-                new VertexC1P3T2() { Pos = tempPosB + new Vector3(right2, tempPosB.Z), Color = color },
-                new VertexC1P3T2() { Pos = tempPosA + new Vector3(right, tempPosA.Z), Color = color }
+                new VertexC1P3T2() { Pos = tempPosA + new Vector3(left), Color = color },
+                new VertexC1P3T2() { Pos = tempPosB + new Vector3(left2), Color = color },
+                new VertexC1P3T2() { Pos = tempPosB + new Vector3(right2), Color = color },
+                new VertexC1P3T2() { Pos = tempPosA + new Vector3(right), Color = color }
             };
             return vertices;
         }
@@ -358,22 +351,18 @@ namespace YMR.ComplexBody.Core
         private VertexC1P3T2[] GetPoly(IDrawDevice device, Vector2[] points, ColorRgba color, Vector2[] texCoord)
         {
             Vector3 tempPos = new Vector3(Vector2.Zero, trans.Pos.Z);
-            float tempScale = 1.0f;
-            device.PreprocessCoords(ref tempPos, ref tempScale);
             Rect pointBoundingRect = points.BoundingBox();
             int t = points.Length;
             VertexC1P3T2[] vertices = new VertexC1P3T2[t];
             for (int i = 0; i < t; i++)
             {
-                vertices[i].Pos.X = points[i].X * tempScale + tempPos.X;
-                vertices[i].Pos.Y = points[i].Y * tempScale + tempPos.Y;
+                vertices[i].Pos.X = points[i].X + tempPos.X;
+                vertices[i].Pos.Y = points[i].Y + tempPos.Y;
                 vertices[i].Pos.Z = tempPos.Z;
                 vertices[i].TexCoord.X = texCoord[i].X;
                 vertices[i].TexCoord.Y = texCoord[i].Y;
                 vertices[i].Color = color;
             }
-
-            TransformVertices(trans, vertices);
 
             return vertices;
         }
@@ -419,9 +408,6 @@ namespace YMR.ComplexBody.Core
                             new Vector2((int)cutPolygon.Polygons(i)[1].X, (int)cutPolygon.Polygons(i)[1].Y),
                             new Vector2((int)cutPolygon.Polygons(i)[2].X, (int)cutPolygon.Polygons(i)[2].Y)
                         };
-                        TransformPoint(trans, ref tempArray[0].X, ref tempArray[0].Y);
-                        TransformPoint(trans, ref tempArray[1].X, ref tempArray[1].Y);
-                        TransformPoint(trans, ref tempArray[2].X, ref tempArray[2].Y);
                         if (material)
                         {
                             float ratioX = 1f / mainTex.Size.X;
@@ -429,9 +415,8 @@ namespace YMR.ComplexBody.Core
                             Vector2[] texCoord = new Vector2[3];
                             for (int j = 0; j < 3; j++)
                             {
-                                float x = (tempArray[j].X - (staticPosMainMaterial ? 0 : trans.Pos.X)) * ratioX;
-                                float y = (tempArray[j].Y - (staticPosMainMaterial ? 0 : trans.Pos.Y)) * ratioY;
-                                if(!staticAngleMainMaterial) TransformPoint(trans, ref x, ref y, false, true, false, false, true);
+                                float x = tempArray[j].X * ratioX;
+                                float y = tempArray[j].Y * ratioY;
                                 texCoord[j] = new Vector2(x, y);
                             }
 
@@ -439,7 +424,7 @@ namespace YMR.ComplexBody.Core
                         }
                         if (polygons)
                         {
-                            vertexInfo.polygons.AddRange(new [] {
+                            vertexInfo.polygons.AddRange(new[] {
                                 GetLine(device, tempArray[0], tempArray[1], lineWidth, polygonColor),
                                 GetLine(device, tempArray[1], tempArray[2], lineWidth, polygonColor),
                                 GetLine(device, tempArray[0], tempArray[2], lineWidth, polygonColor)
@@ -448,7 +433,7 @@ namespace YMR.ComplexBody.Core
                     }
                 }
 
-                BorderInfo[] renderedBorderInfo = new BorderInfo[t];
+                //BorderInfo[] renderedBorderInfo = new BorderInfo[t];
                 for (int i = 0; i < t; i++)
                 {
                     BorderInfo bi = borderInfo[i].Clone();
@@ -461,21 +446,21 @@ namespace YMR.ComplexBody.Core
                         if (i < t - 1) p1 = new Vector2(MathF.RoundToInt(points[i + 1].X), MathF.RoundToInt(points[i + 1].Y));
                         else p1 = new Vector2(points[0].X, points[0].Y);
 
-                        if (camera3D != null)
-                        {
-                            Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
-                            float camX = borderType == BoderMode.Inside ? camTrans.Pos.X : -camTrans.Pos.X;
-                            float camY = borderType == BoderMode.Inside ? camTrans.Pos.Y : -camTrans.Pos.Y;
-                            TransformPoint(trans, ref camX, ref camY, false, true, true, false, true, true);
-                            bi.innerA = new Vector2(bi.innerA.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
-                                                    bi.innerA.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
-                            bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
-                                                    bi.innerB.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
-                        }
-                        renderedBorderInfo[i] = bi;
+                        //if (camera3D != null)
+                        //{
+                        //    Transform camTrans = camera3D.GameObj.AddComponent<Transform>();
+                        //    float camX = borderType == BoderMode.Inside ? camTrans.Pos.X : -camTrans.Pos.X;
+                        //    float camY = borderType == BoderMode.Inside ? camTrans.Pos.Y : -camTrans.Pos.Y;
+                        //    TransformPoint(trans, ref camX, ref camY, false, true, true, false, true, true);
+                        //    bi.innerA = new Vector2(bi.innerA.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
+                        //                            bi.innerA.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
+                        //    bi.innerB = new Vector2(bi.innerB.X + (trans.Pos.X - camX) / MathF.Abs(camTrans.Pos.Z * .01f),
+                        //                            bi.innerB.Y + (trans.Pos.Y - camY) / MathF.Abs(camTrans.Pos.Z * .01f));
+                        //}
+                        //renderedBorderInfo[i] = bi;
 
                         Vector2[] borderPoly = bi.Polygon;
-                        bi.Transform(trans);
+                        //bi.Transform(trans);
 
                         if (borderMaterial)
                         {
@@ -497,88 +482,25 @@ namespace YMR.ComplexBody.Core
                         if (dummies)
                         {
                             vertexInfo.dummies.AddRange(new[] {
-                            GetCircle(device, bi.outerCenter, lineWidth * 2f, dummyColor),
-                            GetCircle(device, bi.innerCenter, lineWidth * 2f, dummyColor),
-                            GetCircle(device, bi.dummyInnerA, lineWidth * 2f, dummyColor),
-                            GetCircle(device, bi.dummyInnerB, lineWidth * 2f, dummyColor),
-                            GetCircle(device, bi.innerA, lineWidth * 2f, dummyColor),
-                            GetCircle(device, bi.innerB, lineWidth * 2f, dummyColor),
-                            GetCircle(device, bi.center, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.outerCenter, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.innerCenter, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.dummyInnerA, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.dummyInnerB, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.innerA, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.innerB, lineWidth * 2f, dummyColor),
+                                GetCircle(device, bi.center, lineWidth * 2f, dummyColor),
 
-                            GetLine(device, bi.outerCenter, bi.innerCenter, lineWidth, dummyColor),
-                            GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor)
-                        });
-                        }
-                    }
-                }
-
-                if (camera3D != null) // We update the RigidBody's shapes only if the borderInfo has been modified at render time (pseudo 3D camera effect must affect the shapes)
-                {
-                    UpdateShapes(renderedBorderInfo);
-                }
-
-                if (limits)
-                {
-                    // Game object center
-                    vertexInfo.limits.Add(GetCircle(device, trans.Pos.Xy, lineWidth * 5f + 1, ColorRgba.White.WithAlpha(.5f)));
-
-                    Vector2[] tempPoints = new Vector2[t];
-                    for (int i = 0; i < t; i++)
-                    {
-                        tempPoints[i] = new Vector2(points[i].X, points[i].Y);
-                        TransformPoint(trans, ref tempPoints[i].X, ref tempPoints[i].Y);
-                    }
-                    Vector2 min = new Vector2(tempPoints.Min(x => x.X), tempPoints.Min(x => x.Y));
-                    Vector2 max = new Vector2(tempPoints.Max(x => x.X), tempPoints.Max(x => x.Y));
-                    float realX = min.X + (max.X - min.X) * .5f;
-                    float realY = min.Y + (max.Y - min.Y) * .5f;
-                    vertexInfo.limits.AddRange(new[] {
-                        // Body center
-                        GetCircle(device, new Vector2(realX, realY), lineWidth * 4f + 1, ColorRgba.Black.WithAlpha(.5f)),
-                        // Inner bounding Rect
-                        GetLine(device, min, new Vector2(max.X, min.Y), lineWidth, ColorRgba.Black.WithAlpha(.5f)),
-                        GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.Black.WithAlpha(.5f)),
-                        GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.Black.WithAlpha(.5f)),
-                        GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.Black.WithAlpha(.5f))
-                    });
-                    // Outer bounding Rect
-                    min = new Vector2(float.MaxValue, float.MaxValue);
-                    max = new Vector2(float.MinValue, float.MinValue);
-                    for (int i = 0; i < t; i++)
-                    {
-                        BorderInfo tempBi = renderedBorderInfo[i].Clone();
-                        tempPoints = tempBi.Polygon;
-                        for (int j = 0; j < 3; j++)
-                        {
-                            TransformPoint(trans, ref tempPoints[j].X, ref tempPoints[j].Y);
-                            if (tempPoints[j].X < min.X) min.X = tempPoints[j].X;
-                            else if (tempPoints[j].X > max.X) max.X = tempPoints[j].X;
-                            if (tempPoints[j].Y < min.Y) min.Y = tempPoints[j].Y;
-                            else if (tempPoints[j].Y > max.Y) max.Y = tempPoints[j].Y;
-                        }
-                    }
-                    realX = min.X + (max.X - min.X) * .5f;
-                    realY = min.Y + (max.Y - min.Y) * .5f;
-                    vertexInfo.limits.AddRange(new[] {
-                        GetCircle(device, new Vector2(realX, realY), lineWidth * 3f + 1, ColorRgba.White.WithAlpha(.5f)),
-                        GetLine(device, min, new Vector2(max.X, min.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)),
-                        GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)),
-                        GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)),
-                        GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f))
-                    });
-
-                    // Snap lines
-                    if (isSelected && ctrlPressed)
-                    {
-                        for (int i = 0; i < t; i++)
-                        {
-                            vertexInfo.limits.AddRange(new[] {
-                                GetLine(device, new Vector2(min.X, borderInfo[i].outerB.Y), new Vector2(max.X, borderInfo[i].outerB.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)),
-                                GetLine(device, new Vector2(borderInfo[i].outerB.X, min.Y), new Vector2(borderInfo[i].outerB.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f))
+                                GetLine(device, bi.outerCenter, bi.innerCenter, lineWidth, dummyColor),
+                                GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor)
                             });
                         }
                     }
                 }
+
+                //if (camera3D != null) // We update the RigidBody's shapes only if the borderInfo has been modified at render time (pseudo 3D camera effect must affect the shapes)
+                //{
+                //    UpdateShapes(renderedBorderInfo);
+                //}
             }
             catch (Exception ex) { }
 
@@ -839,22 +761,36 @@ namespace YMR.ComplexBody.Core
 
                     Texture mainTex = this.mainMaterial.Res.MainTexture.Res;
                     Texture borderTex = this.borderMaterial.Res.MainTexture.Res;
-
-                    // Change this line to allow vertex cache
-                    if (DualityApp.ExecContext == DualityApp.ExecutionContext.Editor || this.vertexInfo == null || this.vertexInfo.discarded) CreateVertices(device);
-                    else if (camera3D != null) CreateVertices(device, false, true, false, true, false, true);
-                    else if (lastTrans == null || lastTrans.Pos.X != trans.Pos.X || lastTrans.Pos.Y != trans.Pos.Y || lastTrans.Pos.Z != trans.Pos.Z || lastTrans.Angle != trans.Angle || lastTrans.Scale != trans.Scale)
-                    {
-                        lastTrans = new Transform() { Pos = new Vector3(trans.Pos.X, trans.Pos.Y, trans.Pos.Z), Angle = trans.Angle, Scale = trans.Scale };
-                        CreateVertices(device);
-                    }
+                    
+                    if (this.vertexInfo == null || this.vertexInfo.discarded) CreateVertices(device);
+                    //else if (camera3D != null) CreateVertices(device, false, true, false, true, false, true);
 
                     VertexInfo vertexInfo = this.vertexInfo.DeepClone();
+                    Transform camTr = this.GameObj.ParentScene.FindComponent<Camera>()?.GameObj.GetComponent<Transform>();
 
                     if (showMaterial) // Main Texture
                     {
                         foreach (VertexC1P3T2[] vi in vertexInfo.material)
                         {
+                            TransformVertices(device, trans, vi);
+                            if (staticPosMainMaterial)
+                            {
+                                float ratioX = 1f / mainTex.Size.X;
+                                float ratioY = 1f / mainTex.Size.Y;
+                                for (int j = 0; j < 3; j++)
+                                {
+                                    vi[j].TexCoord.X = vi[j].Pos.X * ratioX;
+                                    vi[j].TexCoord.Y = vi[j].Pos.Y * ratioY;
+                                    if (!staticAngleMainMaterial) TransformPoint(trans, ref vi[j].TexCoord.X, ref vi[j].TexCoord.Y, false, true, false, false, true);
+                                }
+                            }
+                            else if (staticAngleMainMaterial)
+                            {
+                                for (int j = 0; j < 3; j++)
+                                {
+                                    TransformPoint(trans, ref vi[j].TexCoord.X, ref vi[j].TexCoord.Y, false, true, false);
+                                }
+                            }
                             device.AddVertices(mainMaterial, VertexMode.TriangleFan, vi);
                         }
                     }
@@ -862,6 +798,7 @@ namespace YMR.ComplexBody.Core
                     {
                         foreach (VertexC1P3T2[] vi in vertexInfo.borderMaterial)
                         {
+                            TransformVertices(device, trans, vi);
                             device.AddVertices(borderMaterial, VertexMode.TriangleFan, vi);
                         }
                     }
@@ -869,6 +806,7 @@ namespace YMR.ComplexBody.Core
                     {
                         foreach (VertexC1P3T2[] vi in vertexInfo.polygons)
                         {
+                            TransformVertices(device, trans, vi);
                             device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, vi);
                         }
                     }
@@ -876,6 +814,7 @@ namespace YMR.ComplexBody.Core
                     {
                         foreach (VertexC1P3T2[] vi in vertexInfo.borderGeometry)
                         {
+                            TransformVertices(device, trans, vi);
                             device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, vi);
                         }
                     }
@@ -883,132 +822,205 @@ namespace YMR.ComplexBody.Core
                     {
                         foreach (VertexC1P3T2[] vi in vertexInfo.dummies)
                         {
+                            TransformVertices(device, trans, vi);
                             device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, vi);
                         }
                     }
+
+                    // Limits are calculated in real time
                     if (showLimits)
                     {
+                        // Game object center
+                        Vector3 p = new Vector3(trans.Pos.X, trans.Pos.Y, trans.Pos.Z);
+                        float scale = trans.Scale;
+                        device.PreprocessCoords(ref p, ref scale);
+                        vertexInfo.limits.Add(GetCircle(device, p.Xy, lineWidth * 5f + 1, ColorRgba.White.WithAlpha(.5f)));
+
+                        Vector2[] tempPoints = new Vector2[t];
+                        for (int i = 0; i < t; i++)
+                        {
+                            p = new Vector3(points[i]);
+                            TransformPoint(trans, ref p.X, ref p.Y);
+                            p.Z = trans.Pos.Z;
+                            scale = trans.Scale;
+                            device.PreprocessCoords(ref p, ref scale);
+                            tempPoints[i] = p.Xy;
+                        }
+                        Vector2 min = new Vector2(tempPoints.Min(x => x.X), tempPoints.Min(x => x.Y));
+                        Vector2 max = new Vector2(tempPoints.Max(x => x.X), tempPoints.Max(x => x.Y));
+                        float realX = min.X + (max.X - min.X) * .5f;
+                        float realY = min.Y + (max.Y - min.Y) * .5f;
+                        vertexInfo.limits.AddRange(new[] {
+                            // Body center
+                            GetCircle(device, new Vector2(realX, realY), lineWidth * 4f + 1, ColorRgba.Black.WithAlpha(.5f)),
+                            // Inner bounding Rect
+                            GetLine(device, min, new Vector2(max.X, min.Y), lineWidth, ColorRgba.Black.WithAlpha(.5f)),
+                            GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.Black.WithAlpha(.5f)),
+                            GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.Black.WithAlpha(.5f)),
+                            GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.Black.WithAlpha(.5f))
+                        });
+                        // Outer bounding Rect
+                        min = new Vector2(float.MaxValue, float.MaxValue);
+                        max = new Vector2(float.MinValue, float.MinValue);
+                        for (int i = 0; i < t; i++)
+                        {
+                            for (int j = 0; j < 3; j++)
+                            {
+                                p = new Vector3(borderInfo[i].Polygon[j]);
+                                TransformPoint(trans, ref p.X, ref p.Y);
+                                p.Z = trans.Pos.Z;
+                                scale = trans.Scale;
+                                device.PreprocessCoords(ref p, ref scale);
+
+                                if (p.X < min.X) min.X = p.X;
+                                else if (p.X > max.X) max.X = p.X;
+                                if (p.Y < min.Y) min.Y = p.Y;
+                                else if (p.Y > max.Y) max.Y = p.Y;
+                            }
+                        }
+                        realX = min.X + (max.X - min.X) * .5f;
+                        realY = min.Y + (max.Y - min.Y) * .5f;
+                        vertexInfo.limits.AddRange(new[] {
+                            GetCircle(device, new Vector2(realX, realY), lineWidth * 3f + 1, ColorRgba.White.WithAlpha(.5f)),
+                            GetLine(device, min, new Vector2(max.X, min.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)),
+                            GetLine(device, new Vector2(max.X, min.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)),
+                            GetLine(device, new Vector2(min.X, max.Y), max, lineWidth, ColorRgba.White.WithAlpha(.5f)),
+                            GetLine(device, min, new Vector2(min.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f))
+                        });
+
+                        // Snap lines
+                        if (isSelected && ctrlPressed)
+                        {
+                            for (int i = 0; i < t; i++)
+                            {
+                                vertexInfo.limits.AddRange(new[] {
+                                    GetLine(device, new Vector2(min.X, borderInfo[i].outerB.Y), new Vector2(max.X, borderInfo[i].outerB.Y), lineWidth, ColorRgba.White.WithAlpha(.5f)),
+                                    GetLine(device, new Vector2(borderInfo[i].outerB.X, min.Y), new Vector2(borderInfo[i].outerB.X, max.Y), lineWidth, ColorRgba.White.WithAlpha(.5f))
+                                });
+                            }
+                        }
+
                         foreach (VertexC1P3T2[] vi in vertexInfo.limits)
                         {
                             device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, vi);
                         }
                     }
 
-                    if (isSelected)
-                    {
-                        for (int i = 0; i < t; i++)
-                        {
-                            Vector2 point = new Vector2(borderInfo[i].outerB.X, borderInfo[i].outerB.Y);
-                            TransformPoint(trans, ref point.X, ref point.Y);
+                    //if (isSelected)
+                    //{
+                    //    for (int i = 0; i < t; i++)
+                    //    {
+                    //        Vector2 point = new Vector2(borderInfo[i].outerB.X, borderInfo[i].outerB.Y);
+                    //        TransformPoint(trans, ref point.X, ref point.Y);
 
-                            // Point selection
-                            if (MathF.Distance(mouse.X, mouse.Y, point.X, point.Y) < lineWidth * 4f)
-                            {
-                                if (selectedPointId == -1) selectedPointId = i;
-                            }
+                    //        // Point selection
+                    //        if (MathF.Distance(mouse.X, mouse.Y, point.X, point.Y) < lineWidth * 4f)
+                    //        {
+                    //            if (selectedPointId == -1) selectedPointId = i;
+                    //        }
 
-                            int segments = ctrlPressed ? 4 : 8;
-                            float radius = ctrlPressed ? lineWidth * 4f + 1f : lineWidth * 4f;
-                            if (i == selectedPointId)
-                            {
-                                if (ctrlPressed) device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.White, segments));
-                                else device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.White, segments));
-                            }
-                            else
-                            {
-                                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius + 1, ColorRgba.White, segments));
-                                device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.Black, segments));
-                            }
-                        }
+                    //        int segments = ctrlPressed ? 4 : 8;
+                    //        float radius = ctrlPressed ? lineWidth * 4f + 1f : lineWidth * 4f;
+                    //        if (i == selectedPointId)
+                    //        {
+                    //            if (ctrlPressed) device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.White, segments));
+                    //            else device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.White, segments));
+                    //        }
+                    //        else
+                    //        {
+                    //            device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius + 1, ColorRgba.White, segments));
+                    //            device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, point, radius, ColorRgba.Black, segments));
+                    //        }
+                    //    }
 
-                        // Mouse
-                        if (updatableUsingMouse)
-                        {
-                            float transformedMouseX = mouse.X;
-                            float transformedMouseY = mouse.Y;
-                            Vector2 a = new Vector2(transformedMouseX - 10, transformedMouseY);
-                            Vector2 b = new Vector2(transformedMouseX + 10, transformedMouseY);
-                            Vector2 c = new Vector2(transformedMouseX, transformedMouseY - 10);
-                            Vector2 d = new Vector2(transformedMouseX, transformedMouseY + 10);
-                            device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, a, b, 3, ColorRgba.White));
-                            device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, c, d, 3, ColorRgba.White));
+                    //    // Mouse
+                    //    if (updatableUsingMouse)
+                    //    {
+                    //        float transformedMouseX = mouse.X;
+                    //        float transformedMouseY = mouse.Y;
+                    //        Vector2 a = new Vector2(transformedMouseX - 10, transformedMouseY);
+                    //        Vector2 b = new Vector2(transformedMouseX + 10, transformedMouseY);
+                    //        Vector2 c = new Vector2(transformedMouseX, transformedMouseY - 10);
+                    //        Vector2 d = new Vector2(transformedMouseX, transformedMouseY + 10);
+                    //        device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, a, b, 3, ColorRgba.White));
+                    //        device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, c, d, 3, ColorRgba.White));
 
-                            if (isSelected)
-                            {
-                                if (mouseLeft)
-                                {
-                                    if (selectedPointId > -1) // Move point
-                                    {
-                                        if (ctrlPressed)
-                                        {
-                                            for (int i = 0; i < t; i++)
-                                            {
-                                                // Transformed position i
-                                                float transformedX = points[i].X;
-                                                float transformedY = points[i].Y;
-                                                TransformPoint(trans, ref transformedX, ref transformedY);
+                    //        if (isSelected)
+                    //        {
+                    //            if (mouseLeft)
+                    //            {
+                    //                if (selectedPointId > -1) // Move point
+                    //                {
+                    //                    if (ctrlPressed)
+                    //                    {
+                    //                        for (int i = 0; i < t; i++)
+                    //                        {
+                    //                            // Transformed position i
+                    //                            float transformedX = points[i].X;
+                    //                            float transformedY = points[i].Y;
+                    //                            TransformPoint(trans, ref transformedX, ref transformedY);
 
-                                                float xDistance = Math.Abs(mouse.X - transformedX);
-                                                float yDistance = Math.Abs(mouse.Y - transformedY);
+                    //                            float xDistance = Math.Abs(mouse.X - transformedX);
+                    //                            float yDistance = Math.Abs(mouse.Y - transformedY);
 
-                                                if (xDistance < 10) mouse.X = transformedX;
-                                                else if (yDistance < 10) mouse.Y = transformedY;
-                                            }
-                                        }
+                    //                            if (xDistance < 10) mouse.X = transformedX;
+                    //                            else if (yDistance < 10) mouse.Y = transformedY;
+                    //                        }
+                    //                    }
 
-                                        transformedMouseX = mouse.X - trans.Pos.X;
-                                        transformedMouseY = mouse.Y - trans.Pos.Y;
-                                        TransformPoint(trans, ref transformedMouseX, ref transformedMouseY, false, true, true, false, true);
-                                        points[selectedPointId] = new Vector2(transformedMouseX, transformedMouseY);
-                                        UpdateBody(true);
-                                    }
-                                    else if (!ctrlPressed) // Add point
-                                    {
-                                        // When adding a point, we need to sort the points for a good triangulation
-                                        float nearestDistance = float.MaxValue;
-                                        int nearestId = 0;
-                                        if (t > 2)
-                                        {
-                                            for (int i = 0; i < t; i++)
-                                            {
-                                                float distance = MathF.Distance(mouse.X, mouse.Y, borderInfo[i].outerB.X, borderInfo[i].outerB.Y);
-                                                if (distance < nearestDistance)
-                                                {
-                                                    nearestDistance = distance;
-                                                    nearestId = i;
-                                                }
-                                            }
-                                        }
+                    //                    transformedMouseX = mouse.X - trans.Pos.X;
+                    //                    transformedMouseY = mouse.Y - trans.Pos.Y;
+                    //                    TransformPoint(trans, ref transformedMouseX, ref transformedMouseY, false, true, true, false, true);
+                    //                    points[selectedPointId] = new Vector2(transformedMouseX, transformedMouseY);
+                    //                    UpdateBody(true);
+                    //                }
+                    //                else if (!ctrlPressed) // Add point
+                    //                {
+                    //                    // When adding a point, we need to sort the points for a good triangulation
+                    //                    float nearestDistance = float.MaxValue;
+                    //                    int nearestId = 0;
+                    //                    if (t > 2)
+                    //                    {
+                    //                        for (int i = 0; i < t; i++)
+                    //                        {
+                    //                            float distance = MathF.Distance(mouse.X, mouse.Y, borderInfo[i].outerB.X, borderInfo[i].outerB.Y);
+                    //                            if (distance < nearestDistance)
+                    //                            {
+                    //                                nearestDistance = distance;
+                    //                                nearestId = i;
+                    //                            }
+                    //                        }
+                    //                    }
 
-                                        int id;
-                                        if (t > 2)
-                                        {
-                                            id = nearestId;
-                                        }
-                                        else
-                                        {
-                                            id = t;
-                                        }
-                                        points.Insert(Math.Min(t, id), new Vector2(mouse.X, mouse.Y));
-                                        UpdateBody(true);
-                                    }
-                                }
-                                else if (mouseRight)
-                                {
-                                    if (selectedPointId > -1) // Delete point
-                                    {
-                                        points.Remove(points[selectedPointId]);
-                                        selectedPointId = -1;
-                                        UpdateBody(true);
-                                    }
-                                }
-                                else
-                                {
-                                    selectedPointId = -1;
-                                }
-                            }
-                        }
-                    }
+                    //                    int id;
+                    //                    if (t > 2)
+                    //                    {
+                    //                        id = nearestId;
+                    //                    }
+                    //                    else
+                    //                    {
+                    //                        id = t;
+                    //                    }
+                    //                    points.Insert(Math.Min(t, id), new Vector2(mouse.X, mouse.Y));
+                    //                    UpdateBody(true);
+                    //                }
+                    //            }
+                    //            else if (mouseRight)
+                    //            {
+                    //                if (selectedPointId > -1) // Delete point
+                    //                {
+                    //                    points.Remove(points[selectedPointId]);
+                    //                    selectedPointId = -1;
+                    //                    UpdateBody(true);
+                    //                }
+                    //            }
+                    //            else
+                    //            {
+                    //                selectedPointId = -1;
+                    //            }
+                    //        }
+                    //    }
+                    //}
                 }
                 catch (Exception ex) { }
 
