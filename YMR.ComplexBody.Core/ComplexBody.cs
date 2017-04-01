@@ -519,7 +519,7 @@ namespace YMR.ComplexBody.Core
                                 else texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.InnerPolygon, borderColor, texCoord));
 
-                                float ratio = 1f / (borderWidth - bi.cornerRadius);
+                                float ratio = (1f / borderWidth) * bi.cornerRadius;
                                 Vector2 minTexCoord, maxTexCoord;
                                 if (borderTexFlip != (borderType == BoderMode.Inside))
                                 {
