@@ -338,13 +338,17 @@ namespace YMR.ComplexBody.Core
         }
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments)
         {
+            return GetCircle(device, point, radius, color, segments, 0f, MathF.RadAngle360);
+        }
+        private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments, float angleFrom, float angleTo)
+        {
             Vector3 tempPos = new Vector3(point);
-            float angleStep = MathF.RadAngle360 / (float)segments;
+            float angleStep = angleTo / (float)segments;
             int t = segments + 2;
             VertexC1P3T2[] vertices = new VertexC1P3T2[t];
             vertices[0].Pos = tempPos;
             vertices[0].Color = color;
-            float pointAngle = 0f;
+            float pointAngle = angleFrom;
             for (int i = 1; i < t; i++)
             {
                 float sin = (float)Math.Sin(pointAngle);
@@ -677,31 +681,31 @@ namespace YMR.ComplexBody.Core
                                      tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
                                      out crossX, out crossY, true);
                     borderInfo[i].innerA = new Vector2(crossX, crossY);
+
                     // Corner
                     float angle = MathF.Angle(borderInfo[i].outerB.X, borderInfo[i].outerB.Y, crossX, crossY) + MathF.RadAngle90;
                     Vector2 cornerCenter = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
                     borderInfo[i].cornerACenter = cornerCenter;
-                    angle -= MathF.RadAngle90;
-                    Vector2 cornerA = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
-                    borderInfo[i].cornerAA = cornerA;
-                    angle += MathF.RadAngle180;
-                    borderInfo[i].cornerAB = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
+                    angle = MathF.Angle(crossX, crossY, tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y);
+                    Vector2 cornerAA = new Vector2(cornerCenter.X + borderWidth * MathF.Cos(angle), cornerCenter.Y + borderWidth * MathF.Sin(angle));
+                    borderInfo[i].cornerAA = cornerAA;
                     MathF.LinesCross(cornerCenter.X, cornerCenter.Y,
-                                     cornerA.X, cornerA.Y,
-                                     tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y,
-                                     tempInnerLinePointsB[1].X, tempInnerLinePointsB[1].Y,
+                                     cornerAA.X, cornerAA.Y,
+                                     tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y,
+                                     tempInnerLinePointsB[0].X, tempInnerLinePointsB[0].Y,
                                      out crossX, out crossY, true);
                     borderInfo[i].cornerAACenter = new Vector2(crossX, crossY);
+                    angle = MathF.Angle(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, crossX, crossY);
+                    borderInfo[i].cornerAB = new Vector2(cornerCenter.X + borderWidth * MathF.Cos(angle), cornerCenter.Y + borderWidth * MathF.Sin(angle));
                     borderInfo[i].cornerRadius = MathF.Distance(cornerCenter.X, cornerCenter.Y, crossX, crossY);
-                    angle = MathF.Angle(cornerCenter.X, cornerCenter.Y, crossX, crossY) + MathF.RadAngle180;
                     borderInfo[i].cornerABCenter = new Vector2(cornerCenter.X + borderInfo[i].cornerRadius * MathF.Cos(angle), cornerCenter.Y + borderInfo[i].cornerRadius * MathF.Sin(angle));
 
-                    int prev = i == 0 ? t - 1 : i - 1;
-                    borderInfo[prev].cornerBCenter = borderInfo[i].cornerACenter;
-                    borderInfo[prev].cornerBA = borderInfo[i].cornerAA;
-                    borderInfo[prev].cornerBB = borderInfo[i].cornerAB;
-                    borderInfo[prev].cornerBACenter = borderInfo[i].cornerAACenter;
-                    borderInfo[prev].cornerBBCenter = borderInfo[i].cornerABCenter;
+                    //int prev = i == 0 ? t - 1 : i - 1;
+                    //borderInfo[prev].cornerBCenter = borderInfo[i].cornerACenter;
+                    //borderInfo[prev].cornerBA = borderInfo[i].cornerAA;
+                    //borderInfo[prev].cornerBB = borderInfo[i].cornerAB;
+                    //borderInfo[prev].cornerBACenter = borderInfo[i].cornerAACenter;
+                    //borderInfo[prev].cornerBBCenter = borderInfo[i].cornerABCenter;
                 }
 
                 UpdateShapes();
