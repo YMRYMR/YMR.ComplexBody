@@ -475,7 +475,7 @@ namespace YMR.ComplexBody.Core
 
                         if (borderMaterial)
                         {
-                            if (cornerSegments < 2)
+                            if (cornerSegments < 2 || borderType == BoderMode.Inside)
                             {
                                 Vector2[] texCoord;
                                 if (borderTexFlip != (borderType == BoderMode.Inside)) texCoord = new Vector2[] { Vector2.Zero, new Vector2(1f, 0f), Vector2.One, new Vector2(0f, 1f) };
@@ -518,15 +518,21 @@ namespace YMR.ComplexBody.Core
                                 GetCircle(device, bi.center, lineWidth * 2f, dummyColor),
                                 GetLine(device, bi.outerCenter, bi.innerCenter, lineWidth, dummyColor),
                                 GetLine(device, bi.dummyInnerA, bi.dummyInnerB, lineWidth, dummyColor),
-                                // Corners
-                                GetCircle(device, bi.cornerACenter, lineWidth * 2f, cornerColor),
-                                GetCircle(device, bi.cornerAA, lineWidth * 2f, cornerColor),
-                                GetCircle(device, bi.cornerAB, lineWidth * 2f, cornerColor),
-                                GetCircle(device, bi.cornerAACenter, lineWidth * 2f, cornerColor),
-                                GetCircle(device, bi.cornerABCenter, lineWidth * 2f, cornerColor),
-                                GetLine(device, bi.cornerACenter, bi.cornerAA, lineWidth, cornerColor),
-                                GetLine(device, bi.cornerACenter, bi.cornerAB, lineWidth, cornerColor),
                             });
+
+                            // Corners
+                            if (borderType != BoderMode.Inside)
+                            {
+                                vertexInfo.dummies.AddRange(new[] {
+                                    GetCircle(device, bi.cornerACenter, lineWidth * 2f, cornerColor),
+                                    GetCircle(device, bi.cornerAA, lineWidth * 2f, cornerColor),
+                                    GetCircle(device, bi.cornerAB, lineWidth * 2f, cornerColor),
+                                    GetCircle(device, bi.cornerAACenter, lineWidth * 2f, cornerColor),
+                                    GetCircle(device, bi.cornerABCenter, lineWidth * 2f, cornerColor),
+                                    GetLine(device, bi.cornerACenter, bi.cornerAA, lineWidth, cornerColor),
+                                    GetLine(device, bi.cornerACenter, bi.cornerAB, lineWidth, cornerColor),
+                                });
+                            }
                         }
                     }
                 }
