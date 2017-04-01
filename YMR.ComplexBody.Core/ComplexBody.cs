@@ -358,10 +358,6 @@ namespace YMR.ComplexBody.Core
         }
         private VertexC1P3T2[] GetLine(IDrawDevice device, Vector2 pointA, Vector2 pointB, float width, ColorRgba color)
         {
-            return GetLine(device, pointA, pointB, width, color, false);
-        }
-        private VertexC1P3T2[] GetLine(IDrawDevice device, Vector2 pointA, Vector2 pointB, float width, ColorRgba color, bool scaleWidth)
-        {
             Vector3 tempPosA = new Vector3(pointA);
             Vector3 tempPosB = new Vector3(pointB);
             Vector2 dir = (tempPosB.Xy - tempPosA.Xy).Normalized;
@@ -496,6 +492,8 @@ namespace YMR.ComplexBody.Core
                                 if (borderTexFlip != (borderType == BoderMode.Inside)) texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 1f), new Vector2(1f, 1f) };
                                 else texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.InnerPolygon, borderColor, texCoord));
+
+                                vertexInfo.borderMaterial.Add(GetCircle(device, bi.cornerACenter, borderWidth * .5f, borderColor, cornerSegments));
                             }
                         }
 
@@ -1009,6 +1007,11 @@ namespace YMR.ComplexBody.Core
                             device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, a, b, 3, ColorRgba.White));
                             device.AddVertices(Material.InvertWhite, VertexMode.Quads, GetLine(device, c, d, 3, ColorRgba.White));
 
+                            mouse = device.GetSpaceCoord(new Vector2(this.mouseX, this.mouseY));
+                            mouse.X -= trans.Pos.X;
+                            mouse.Y -= trans.Pos.Y;
+                            MathF.TransformCoord(ref mouse.X, ref mouse.Y, -trans.Angle, 1f / trans.Scale);
+
                             if (isSelected)
                             {
                                 if (mouseLeft)
@@ -1030,11 +1033,6 @@ namespace YMR.ComplexBody.Core
                                                 else if (yDistance < 10) mouse.Y = transformedY;
                                             }
                                         }
-
-                                        mouse = device.GetSpaceCoord(new Vector2(this.mouseX, this.mouseY));
-                                        mouse.X -= trans.Pos.X;
-                                        mouse.Y -= trans.Pos.Y;
-                                        MathF.TransformCoord(ref mouse.X, ref mouse.Y, -trans.Angle, 1f / trans.Scale);
 
                                         points[selectedPointId] = new Vector2(mouse.X, mouse.Y);
                                         UpdateBody(true);
