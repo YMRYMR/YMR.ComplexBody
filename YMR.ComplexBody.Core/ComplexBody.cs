@@ -361,6 +361,12 @@ namespace YMR.ComplexBody.Core
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments, float angleFrom, float angleTo, Vector2 minTexCoord, Vector2 maxTexCoord)
         {
             //angleTo = angleFrom + MathF.Abs(MathF.Abs(angleTo) - MathF.Abs(angleFrom));
+            if (angleTo > angleFrom && angleTo - angleFrom != MathF.RadAngle360)
+            {
+                float temp = angleTo - MathF.RadAngle360;
+                angleTo = angleFrom;
+                angleFrom = temp;
+            }
             Vector3 tempPos = new Vector3(point);
             float angleStep = (angleTo - angleFrom) / (float)segments;
             int t = segments + 2;
