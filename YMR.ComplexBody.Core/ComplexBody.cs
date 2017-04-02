@@ -361,11 +361,14 @@ namespace YMR.ComplexBody.Core
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments, float angleFrom, float angleTo, Vector2 minTexCoord, Vector2 maxTexCoord)
         {
             //angleTo = angleFrom + MathF.Abs(MathF.Abs(angleTo) - MathF.Abs(angleFrom));
-            if (angleTo > angleFrom && angleTo - angleFrom != MathF.RadAngle360)
+            if (angleTo - angleFrom != MathF.RadAngle360)
             {
-                float temp = angleTo - MathF.RadAngle360;
-                angleTo = angleFrom;
-                angleFrom = temp;
+                if (angleTo > angleFrom)
+                {
+                    float temp = angleTo - MathF.RadAngle360;
+                    angleTo = angleFrom;
+                    angleFrom = temp;
+                }
             }
             Vector3 tempPos = new Vector3(point);
             float angleStep = (angleTo - angleFrom) / (float)segments;
@@ -728,7 +731,8 @@ namespace YMR.ComplexBody.Core
 
                     // Corner
                     float angle = MathF.Angle(borderInfo[i].outerB.X, borderInfo[i].outerB.Y, crossX, crossY) + MathF.RadAngle90;
-                    Vector2 cornerCenter = new Vector2(crossX + borderWidth * .5f * MathF.Cos(angle), crossY + borderWidth * .5f * MathF.Sin(angle));
+                    float dist = MathF.Distance(borderInfo[i].outerB.X, borderInfo[i].outerB.Y, crossX, crossY);
+                    Vector2 cornerCenter = new Vector2(crossX + dist * .5f * MathF.Cos(angle), crossY + dist * .5f * MathF.Sin(angle));
                     borderInfo[i].cornerACenter = cornerCenter;
                     angle = MathF.Angle(crossX, crossY, tempInnerLinePointsA[0].X, tempInnerLinePointsA[0].Y);
                     borderInfo[i].cornerAngleA = angle + MathF.RadAngle90;
@@ -931,6 +935,7 @@ namespace YMR.ComplexBody.Core
                     }
                     if (showDummies)
                     {
+                        VertexC1P3T2[] cornerVi = vertexInfo.dummies.Last();
                         foreach (VertexC1P3T2[] vi in vertexInfo.dummies)
                         {
                             TransformVertices(device, trans, vi);
