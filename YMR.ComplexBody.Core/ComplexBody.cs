@@ -1042,13 +1042,14 @@ namespace YMR.ComplexBody.Core
                             device.PreprocessCoords(ref p, ref scale);
 
                             // Point selection
-                            if (MathF.Distance(mouse.X, mouse.Y, p.X, p.Y) < lineWidth * 4f)
+                            float radius = 10f;// lineWidth * 4f;
+                            if (MathF.Distance(mouse.X, mouse.Y, p.X, p.Y) < radius)
                             {
                                 if (selectedPointId == -1) selectedPointId = i;
                             }
 
                             int segments = ctrlPressed ? 4 : 8;
-                            float radius = ctrlPressed ? lineWidth * 4f + 1f : lineWidth * 4f;
+                            radius = ctrlPressed ? radius + 1f : radius;
                             if (i == selectedPointId)
                             {
                                 if (ctrlPressed) device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, p.Xy, radius, ColorRgba.White, segments));
