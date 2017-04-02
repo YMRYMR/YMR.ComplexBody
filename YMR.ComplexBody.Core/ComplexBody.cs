@@ -1036,7 +1036,7 @@ namespace YMR.ComplexBody.Core
 
                         for (int i = 0; i < t; i++)
                         {
-                            Vector3 p = new Vector3(borderInfo[i].outerB, trans.Pos.Z);
+                            Vector3 p = new Vector3(borderInfo[i].outerB, trans.Pos.Z + 1f);
                             TransformPoint(trans, ref p.X, ref p.Y);
                             scale = trans.Scale;
                             device.PreprocessCoords(ref p, ref scale);
@@ -1060,6 +1060,16 @@ namespace YMR.ComplexBody.Core
                                 device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, p.Xy, radius + 1, ColorRgba.White, segments));
                                 device.AddVertices(Material.SolidWhite, VertexMode.TriangleFan, GetCircle(device, p.Xy, radius, ColorRgba.Black, segments));
                             }
+
+                            Font font = Font.GenericMonospace10.Res;
+                            string text = i.ToString();
+                            VertexC1P3T2[] vertices = new VertexC1P3T2[text.Length * 4];
+                            p.Z = 0f;// trans.Pos.Z - 1f;
+                            Vector2 textSize = font.MeasureText(text);
+                            int vertexCount = font.EmitTextVertices(text, ref vertices, p.X - textSize.X * .5f, (p.Y - font.Metrics.BaseLine * .5f - 1.5f), p.Z, new ColorRgba(1f, 1f, 1f), 0.0f, 1f);
+                            scale = trans.Scale;
+                            device.PreprocessCoords(ref p, ref scale);
+                            device.AddVertices(font.Material, VertexMode.Quads, vertices);
                         }
 
                         // Mouse
