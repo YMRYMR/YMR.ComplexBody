@@ -282,13 +282,14 @@ namespace YMR.ComplexBody.Core
         public bool UpdatableInGame { get { return updatableInGame; } set { updatableInGame = value; } }
         public ContentRef<Material> MainMaterial { get { return mainMaterial; } set { mainMaterial = value; vertexInfo.discarded = true; } }
         public ContentRef<Material> BorderMaterial { get { return borderMaterial; } set { borderMaterial = value; vertexInfo.discarded = true; } }
+        [EditorHintFlags(MemberFlags.Invisible)]
         public float BoundRadius { get { return this.GameObj.GetComponent<RigidBody>().BoundRadius; } }
         public float BorderWidth { get { return borderWidth; } set { borderWidth = value; UpdateBody(true); } }
         public float LineWidth { get { return lineWidth; } set { lineWidth = value; vertexInfo.discarded = true; } }
         public ColorRgba PolygonColor { get { return polygonColor; } set { polygonColor = value; vertexInfo.discarded = true; } }
-        public ColorRgba DummyColor { get { return dummyColor; } set { dummyColor = value; vertexInfo.discarded = true; } }
-        public ColorRgba CornerColor { get { return cornerColor; } set { cornerColor = value; vertexInfo.discarded = true; } }
-        public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; vertexInfo.discarded = true; } }
+        //public ColorRgba DummyColor { get { return dummyColor; } set { dummyColor = value; vertexInfo.discarded = true; } }
+        //public ColorRgba CornerColor { get { return cornerColor; } set { cornerColor = value; vertexInfo.discarded = true; } }
+        //public ColorRgba BorderGeometryColor { get { return borderGeometryColor; } set { borderGeometryColor = value; vertexInfo.discarded = true; } }
         public BodyShapeMode ShapeMode { get { return shapeMode; } set { shapeMode = value; UpdateBody(true); } }
         public BoderMode BorderType { get { return borderType; } set { borderType = value; UpdateBody(true); } }
         public bool StaticPosMainMaterial { get { return staticPosMainMaterial; } set { staticPosMainMaterial = value; } }

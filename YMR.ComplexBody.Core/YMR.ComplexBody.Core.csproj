@@ -42,7 +42,6 @@
     <Compile Include="GeometryUtility\CPolygon.cs" />
     <Compile Include="GeometryUtility\CPolygonShape.cs" />
     <Compile Include="GeometryUtility\Definition.cs" />
-    <Compile Include="MoveCamera.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
