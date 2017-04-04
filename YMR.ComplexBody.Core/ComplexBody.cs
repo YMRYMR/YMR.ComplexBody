@@ -294,7 +294,7 @@ namespace YMR.ComplexBody.Core
         public bool StaticPosMainMaterial { get { return staticPosMainMaterial; } set { staticPosMainMaterial = value; } }
         public bool StaticAngleMainMaterial { get { return staticAngleMainMaterial; } set { staticAngleMainMaterial = value; } }
         public bool BorderTexFlip { get { return borderTexFlip; } set { borderTexFlip = value; vertexInfo.discarded = true; } }
-        public int CornerSegmentsPerCircle { get { return cornerSegmentsPerCircle; } set { cornerSegmentsPerCircle = value; vertexInfo.discarded = true; } }
+        public int CornerSegmentsPerCircle { get { return cornerSegmentsPerCircle; } set { cornerSegmentsPerCircle = value; UpdateBody(true); } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool CtrlPressed { get { return ctrlPressed; } set { ctrlPressed = value; } }
@@ -870,8 +870,24 @@ namespace YMR.ComplexBody.Core
             {
                 foreach (BorderInfo bi in borderInfo)
                 {
-                    PolyShapeInfo shape = new PolyShapeInfo() { Vertices = bi.Polygon };
-                    rb.AddShape(shape);
+                    if (borderType == BoderMode.Inside)
+                    {
+                        rb.AddShape(new PolyShapeInfo() { Vertices = bi.Polygon });
+                    }
+                    else
+                    {
+                        if (cornerSegmentsPerCircle < 1)
+                        {
+                            rb.AddShape(new PolyShapeInfo() { Vertices = bi.Polygon });
+                            //rb.AddShape(new PolyShapeInfo() { Vertices = bi.PolygonCornerAOutside });
+                            //rb.AddShape(new PolyShapeInfo() { Vertices = bi.PolygonCornerBOutside });
+                        }
+                        else
+                        {
+                            rb.AddShape(new PolyShapeInfo() { Vertices = bi.PolygonForCornersOutside });
+                            rb.AddShape(new CircleShapeInfo() { Position = bi.outerB, Radius = BorderWidth });
+                        }
+                    }
                 }
             }
             else // Triangulated shapes
