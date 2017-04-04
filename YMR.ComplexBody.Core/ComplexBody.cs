@@ -263,7 +263,7 @@ namespace YMR.ComplexBody.Core
         private bool borderTexFlip = false;
         private bool staticPosMainMaterial = false;
         private bool staticAngleMainMaterial = false;
-        private int cornerSegments = 0;
+        private int cornerSegmentsPerCircle = 0;
 
         #endregion
 
@@ -294,7 +294,7 @@ namespace YMR.ComplexBody.Core
         public bool StaticPosMainMaterial { get { return staticPosMainMaterial; } set { staticPosMainMaterial = value; } }
         public bool StaticAngleMainMaterial { get { return staticAngleMainMaterial; } set { staticAngleMainMaterial = value; } }
         public bool BorderTexFlip { get { return borderTexFlip; } set { borderTexFlip = value; vertexInfo.discarded = true; } }
-        public int CornerSegments { get { return cornerSegments; } set { cornerSegments = value; vertexInfo.discarded = true; } }
+        public int CornerSegmentsPerCircle { get { return cornerSegmentsPerCircle; } set { cornerSegmentsPerCircle = value; vertexInfo.discarded = true; } }
 
         [EditorHintFlags(MemberFlags.Invisible)]
         public bool CtrlPressed { get { return ctrlPressed; } set { ctrlPressed = value; } }
@@ -389,7 +389,8 @@ namespace YMR.ComplexBody.Core
                 }
             }
             Vector3 tempPos = new Vector3(point);
-            float angleStep = (angleTo - angleFrom) / (float)segments;
+            segments = 1 + (int)((((float)segments - 1f) / 360f) * MathF.RadToDeg(MathF.Abs(angleTo - angleFrom)));
+            float angleStep = (angleTo - angleFrom) / segments;
             int t = segments + 2;
             VertexC1P3T2[] vertices = new VertexC1P3T2[t];
             vertices[0].Pos = tempPos;
@@ -547,7 +548,7 @@ namespace YMR.ComplexBody.Core
                                 else texCoord = new Vector2[] { Vector2.One, new Vector2(0f, 1f), Vector2.Zero, new Vector2(1f, 0f) };
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonForCornersOutside, borderColor, texCoord));
 
-                                if (cornerSegments < 1)
+                                if (cornerSegmentsPerCircle < 1)
                                 {
                                     if (borderTexFlip) texCoord = new Vector2[] { new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f) };
                                     else texCoord = new Vector2[] { new Vector2(1f, 1f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, 1f) };
@@ -568,7 +569,7 @@ namespace YMR.ComplexBody.Core
                                         minTexCoord = new Vector2(1f, 1f);
                                         maxTexCoord = new Vector2(0f, 0f);
                                     }
-                                    vertexInfo.borderMaterial.Add(GetCircle(device, bi.outerB, borderWidth, borderColor, cornerSegments, bi.cornerAngleB, bi.cornerAngleA, minTexCoord, maxTexCoord));
+                                    vertexInfo.borderMaterial.Add(GetCircle(device, bi.outerB, borderWidth, borderColor, cornerSegmentsPerCircle, bi.cornerAngleB, bi.cornerAngleA, minTexCoord, maxTexCoord));
                                 }
                             }
                         }
@@ -618,7 +619,7 @@ namespace YMR.ComplexBody.Core
                                     GetLine(device, bi.cornerAA, bi.cornerAAInv, lineWidth, cornerColor),
                                     GetLine(device, bi.cornerAB, bi.cornerABInv, lineWidth, cornerColor),
 
-                                    GetCircle(device, bi.cornerACenter, bi.cornerRadius, cornerColor, cornerSegments, bi.cornerAngleB, bi.cornerAngleA)
+                                    GetCircle(device, bi.cornerACenter, bi.cornerRadius, cornerColor, cornerSegmentsPerCircle, bi.cornerAngleB, bi.cornerAngleA)
                                 });
                             }
                         }
@@ -1285,7 +1286,7 @@ namespace YMR.ComplexBody.Core
             target.borderTexFlip = this.borderTexFlip;
             target.staticPosMainMaterial = this.staticPosMainMaterial;
             target.staticAngleMainMaterial = this.staticAngleMainMaterial;
-            target.cornerSegments = this.cornerSegments;
+            target.cornerSegmentsPerCircle = this.cornerSegmentsPerCircle;
             target.UpdateBody(true);
         } 
     }
