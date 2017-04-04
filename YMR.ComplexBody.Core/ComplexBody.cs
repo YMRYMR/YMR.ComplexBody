@@ -530,7 +530,7 @@ namespace YMR.ComplexBody.Core
                         {
                             if (borderType == BoderMode.Inside)
                             {
-                                Vector2[] texCoord; 
+                                Vector2[] texCoord;
                                 if (borderTexFlip != (borderType == BoderMode.Inside)) texCoord = new Vector2[] { new Vector2(1f, 0f), Vector2.Zero, new Vector2(0f, 1f), Vector2.One };
                                 else texCoord = new Vector2[] { Vector2.One, new Vector2(0f, 1f), Vector2.Zero, new Vector2(1f, 0f) };
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonForCornersInside, borderColor, texCoord));
@@ -540,18 +540,6 @@ namespace YMR.ComplexBody.Core
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonCornerAInside, borderColor, texCoord));
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonCornerBInside, borderColor, texCoord));
                             }
-                            else if (cornerSegments < 1)
-                            {
-                                Vector2[] texCoord;
-                                if (borderTexFlip != (borderType == BoderMode.Inside)) texCoord = new Vector2[] { new Vector2(1f, 0f), Vector2.Zero, new Vector2(0f, 1f), Vector2.One };
-                                else texCoord = new Vector2[] { Vector2.One, new Vector2(0f, 1f), Vector2.Zero, new Vector2(1f, 0f) };
-                                vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonForCornersOutside, borderColor, texCoord));
-
-                                if (borderTexFlip) texCoord = new Vector2[] { new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f) };
-                                else texCoord = new Vector2[] { new Vector2(1f, 1f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, 1f) };
-                                vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonCornerAOutside, borderColor, texCoord));
-                                vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonCornerBOutside, borderColor, texCoord));
-                            }
                             else
                             {
                                 Vector2[] texCoord;
@@ -559,28 +547,29 @@ namespace YMR.ComplexBody.Core
                                 else texCoord = new Vector2[] { Vector2.One, new Vector2(0f, 1f), Vector2.Zero, new Vector2(1f, 0f) };
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonForCornersOutside, borderColor, texCoord));
 
-                                //Vector2[] texCoord;
-                                //if (borderTexFlip != (borderType == BoderMode.Inside)) texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
-                                //else texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 1f), new Vector2(1f, 1f) };
-                                //vertexInfo.borderMaterial.Add(GetPoly(device, bi.OuterPolygon, borderColor, texCoord));
-
-                                //if (borderTexFlip != (borderType == BoderMode.Inside)) texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 1f), new Vector2(1f, 1f) };
-                                //else texCoord = new Vector2[] { new Vector2(1f, .5f), new Vector2(0f, .5f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
-                                //vertexInfo.borderMaterial.Add(GetPoly(device, bi.InnerPolygon, borderColor, texCoord));
-
-                                //float ratio = (1f / borderWidth) * bi.cornerRadius;
-                                //Vector2 minTexCoord, maxTexCoord;
-                                //if (borderTexFlip != (borderType == BoderMode.Inside))
-                                //{
-                                //    minTexCoord = new Vector2(0f, 0f);
-                                //    maxTexCoord = new Vector2(1f, 1f);
-                                //}
-                                //else
-                                //{
-                                //    minTexCoord = new Vector2(1f, 1f);
-                                //    maxTexCoord = new Vector2(0f, 0f);
-                                //}
-                                //vertexInfo.borderMaterial.Add(GetCircle(device, bi.cornerACenter, bi.cornerRadius, borderColor, cornerSegments, bi.cornerAngleB, bi.cornerAngleA, minTexCoord, maxTexCoord));
+                                if (cornerSegments < 1)
+                                {
+                                    if (borderTexFlip) texCoord = new Vector2[] { new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, 0f) };
+                                    else texCoord = new Vector2[] { new Vector2(1f, 1f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(0f, 1f) };
+                                    vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonCornerAOutside, borderColor, texCoord));
+                                    vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonCornerBOutside, borderColor, texCoord));
+                                }
+                                else
+                                {
+                                    float ratio = (1f / borderWidth) * bi.cornerRadius;
+                                    Vector2 minTexCoord, maxTexCoord;
+                                    if (borderTexFlip != (borderType == BoderMode.Inside))
+                                    {
+                                        minTexCoord = new Vector2(0f, 0f);
+                                        maxTexCoord = new Vector2(1f, 1f);
+                                    }
+                                    else
+                                    {
+                                        minTexCoord = new Vector2(1f, 1f);
+                                        maxTexCoord = new Vector2(0f, 0f);
+                                    }
+                                    vertexInfo.borderMaterial.Add(GetCircle(device, bi.outerB, borderWidth, borderColor, cornerSegments, bi.cornerAngleB, bi.cornerAngleA, minTexCoord, maxTexCoord));
+                                }
                             }
                         }
 
@@ -809,7 +798,7 @@ namespace YMR.ComplexBody.Core
                     borderInfo[i].cornerAACenterInv = new Vector2(cornerCenter.X + cornerRadius * MathF.Cos(angle + MathF.RadAngle180), cornerCenter.Y + cornerRadius * MathF.Sin(angle + MathF.RadAngle180));
                     borderInfo[i].cornerAngleA = angle + MathF.RadAngle90;
                     angle = MathF.Angle(tempInnerLinePointsA[1].X, tempInnerLinePointsA[1].Y, crossX, crossY);
-                    borderInfo[i].cornerAngleB = angle + MathF.RadAngle90;
+                    borderInfo[i].cornerAngleB = borderInfo[i].angle;
                     borderInfo[i].cornerAB = new Vector2(cornerCenter.X + borderWidth * MathF.Cos(angle), cornerCenter.Y + borderWidth * MathF.Sin(angle));
                     borderInfo[i].cornerABInv = new Vector2(cornerCenter.X + borderWidth * MathF.Cos(angle + MathF.RadAngle180), cornerCenter.Y + borderWidth * MathF.Sin(angle + MathF.RadAngle180));
                     borderInfo[i].cornerABCenter = new Vector2(cornerCenter.X + cornerRadius * MathF.Cos(angle), cornerCenter.Y + borderInfo[i].cornerRadius * MathF.Sin(angle));
