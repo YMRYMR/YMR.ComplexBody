@@ -369,14 +369,20 @@ namespace YMR.ComplexBody.Core
         private VertexC1P3T2[] GetCircle(IDrawDevice device, Vector2 point, float radius, ColorRgba color, int segments, float angleFrom, float angleTo, Vector2 minTexCoord, Vector2 maxTexCoord)
         {
             //angleTo = angleFrom + MathF.Abs(MathF.Abs(angleTo) - MathF.Abs(angleFrom));
-            if (angleTo - angleFrom != MathF.RadAngle360)
+            if (MathF.Abs(angleTo) - MathF.Abs(angleFrom) != MathF.RadAngle360)
             {
-                if (angleTo > angleFrom)
-                {
-                    float temp = angleTo - MathF.RadAngle360;
-                    angleTo = angleFrom;
-                    angleFrom = temp;
-                }
+                //if (angleTo > angleFrom)
+                //{
+                //    float temp = angleTo - MathF.RadAngle360;
+                //    angleTo = angleFrom;
+                //    angleFrom = temp;
+                //}
+                while (angleFrom < 0f) angleFrom += MathF.RadAngle360;
+                while (angleTo < angleFrom) angleTo += MathF.RadAngle360;
+                while (angleTo - angleFrom > MathF.RadAngle360) angleTo += MathF.RadAngle360;
+                float temp = angleTo - MathF.RadAngle360;
+                angleTo = angleFrom;
+                angleFrom = temp;
             }
             Vector3 tempPos = new Vector3(point);
             segments = 1 + (int)((((float)segments - 1f) / 360f) * MathF.RadToDeg(MathF.Abs(angleTo - angleFrom)));
@@ -388,7 +394,7 @@ namespace YMR.ComplexBody.Core
             vertices[0].TexCoord = minTexCoord;
             float pointAngle = angleFrom;
             float ratioX = maxTexCoord.X / (float)t;
-            float ratioY = maxTexCoord.Y / (float)t;
+            //float ratioY = maxTexCoord.Y / (float)t;
             for (int i = 1; i < t; i++)
             {
                 float sin = (float)Math.Sin(pointAngle);
@@ -396,10 +402,10 @@ namespace YMR.ComplexBody.Core
                 vertices[i].Pos.X = tempPos.X + sin * radius;
                 vertices[i].Pos.Y = tempPos.Y - cos * radius;
                 vertices[i].Color = color;
-                //vertices[i].TexCoord = new Vector2(ratio * i, maxTexCoord.Y);
-                //vertices[i].TexCoord = new Vector2(ratio * sin, maxTexCoord.Y);
+                vertices[i].TexCoord = new Vector2(ratioX * ((float)i - 1f), maxTexCoord.Y);
+                //vertices[i].TexCoord = new Vector2(ratioX * sin, maxTexCoord.Y);
                 //vertices[i].TexCoord = new Vector2(ratioX * sin, 1f - ratioY * cos);
-                vertices[i].TexCoord = new Vector2(i % 2 == 0 ? minTexCoord.X : maxTexCoord.X, maxTexCoord.Y);
+                //vertices[i].TexCoord = new Vector2(i % 2 == 0 ? minTexCoord.X : maxTexCoord.X, maxTexCoord.Y);
                 pointAngle += angleStep;
             }
             return vertices;
@@ -528,13 +534,13 @@ namespace YMR.ComplexBody.Core
                                 Vector2[] texCoord;
                                 float distX = MathF.Distance(bi.innerBCenter.X, bi.innerBCenter.Y, bi.innerACenter.X, bi.innerACenter.Y);
                                 float distY = MathF.Distance(bi.outerBCenter.X, bi.outerBCenter.Y, bi.innerBCenter.X, bi.innerBCenter.Y);
-                                float ratioX = distX / distY;
+                                float ratioX = MathF.RoundToInt(distX / distY, MidpointRounding.AwayFromZero);
                                 //float maxX = mainTex.WrapX == TextureWrapMode.Clamp ? 1f : (1f / distX) * mainTex.Size.X;
                                 float maxX = mainTex.WrapX == TextureWrapMode.Clamp ? 1f : ratioX;
                                 //float maxY = mainTex.WrapY == TextureWrapMode.Clamp ? 1f : (1f / distY) * mainTex.Size.Y;
                                 if (!borderTexFlip) texCoord = new Vector2[] { new Vector2(maxX, 0f), Vector2.Zero, new Vector2(0f, 1f), new Vector2(maxX, 1f) };
                                 else texCoord = new Vector2[] { new Vector2(maxX, 1f), new Vector2(0f, 1f), Vector2.Zero, new Vector2(maxX, 0f) };
-
+                                
                                 int prev = i == 0 ? t - 1 : i - 1;
                                 if (borderInfo[prev].innerBCenter == borderInfo[prev].dummyInnerA)
                                 {
@@ -543,8 +549,6 @@ namespace YMR.ComplexBody.Core
                                         texCoord[j].X = 1f - texCoord[j].X;
                                     }
                                 }
-
-
 
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonForCornersInside, borderColor, texCoord));
 
@@ -557,7 +561,9 @@ namespace YMR.ComplexBody.Core
                                 }
                                 else
                                 {
-                                    float ratio = (1f / borderWidth) * bi.cornerRadius;
+                                    float distR = MathF.CircularDist(bi.cornerAngleA, bi.cornerAngleB);
+                                    //float ratio = (1f / borderWidth) * bi.cornerRadius;
+                                    maxX = mainTex.WrapX == TextureWrapMode.Clamp ? 1f : MathF.RoundToInt(distR, MidpointRounding.AwayFromZero);
                                     Vector2 minTexCoord, maxTexCoord;
                                     if (borderTexFlip == (borderInfo[i].innerBCenter == borderInfo[i].dummyInnerA))
                                     {
@@ -566,8 +572,8 @@ namespace YMR.ComplexBody.Core
                                     }
                                     else
                                     {
-                                        minTexCoord = new Vector2(1f, 1f);
-                                        maxTexCoord = new Vector2(0f, 0f);
+                                        minTexCoord = new Vector2(0f, 1f);
+                                        maxTexCoord = new Vector2(-1f, 0f);
                                     }
                                     vertexInfo.borderMaterial.Add(GetCircle(device, bi.cornerACenter, borderWidth, borderColor, cornerSegmentsPerCircle, bi.cornerAngleB, bi.cornerAngleA, minTexCoord, maxTexCoord));
                                 }
