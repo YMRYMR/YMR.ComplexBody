@@ -264,7 +264,7 @@ namespace YMR.ComplexBody.Core
         public List<Vector2> Points { get { return points; } set { points = value; } }
         public bool ShowBorderMaterial { get { return showBorderMaterial; } set { showBorderMaterial = value; vertexInfo.discarded = true; } }
         public bool ShowBorderGeometry { get { return showBorderGeometry; } set { showBorderGeometry = value; vertexInfo.discarded = true; } }
-        //public bool ShowDummies { get { return showDummies; } set { showDummies = value; vertexInfo.discarded = true; } }
+        public bool ShowDummies { get { return showDummies; } set { showDummies = value; vertexInfo.discarded = true; } }
         public bool ShowLimits { get { return showLimits; } set { showLimits = value; vertexInfo.discarded = true; } }
         public bool ShowPolygons { get { return showPolygons; } set { showPolygons = value; vertexInfo.discarded = true; } }
         public bool ShowMaterial { get { return showMaterial; } set { showMaterial = value; vertexInfo.discarded = true; } }
@@ -387,7 +387,8 @@ namespace YMR.ComplexBody.Core
             vertices[0].Color = color;
             vertices[0].TexCoord = minTexCoord;
             float pointAngle = angleFrom;
-            float ratio = maxTexCoord.X / (float)t;
+            float ratioX = maxTexCoord.X / (float)t;
+            float ratioY = maxTexCoord.Y / (float)t;
             for (int i = 1; i < t; i++)
             {
                 float sin = (float)Math.Sin(pointAngle);
@@ -396,7 +397,9 @@ namespace YMR.ComplexBody.Core
                 vertices[i].Pos.Y = tempPos.Y - cos * radius;
                 vertices[i].Color = color;
                 //vertices[i].TexCoord = new Vector2(ratio * i, maxTexCoord.Y);
-                vertices[i].TexCoord = new Vector2(ratio * sin, maxTexCoord.Y);
+                //vertices[i].TexCoord = new Vector2(ratio * sin, maxTexCoord.Y);
+                //vertices[i].TexCoord = new Vector2(ratioX * sin, 1f - ratioY * cos);
+                vertices[i].TexCoord = new Vector2(i % 2 == 0 ? minTexCoord.X : maxTexCoord.X, maxTexCoord.Y);
                 pointAngle += angleStep;
             }
             return vertices;
@@ -523,8 +526,14 @@ namespace YMR.ComplexBody.Core
                             if (borderType == BoderMode.Inside)
                             {
                                 Vector2[] texCoord;
-                                if (!borderTexFlip) texCoord = new Vector2[] { new Vector2(1f, 0f), Vector2.Zero, new Vector2(0f, 1f), Vector2.One };
-                                else texCoord = new Vector2[] { Vector2.One, new Vector2(0f, 1f), Vector2.Zero, new Vector2(1f, 0f) };
+                                float distX = MathF.Distance(bi.innerBCenter.X, bi.innerBCenter.Y, bi.innerACenter.X, bi.innerACenter.Y);
+                                float distY = MathF.Distance(bi.outerBCenter.X, bi.outerBCenter.Y, bi.innerBCenter.X, bi.innerBCenter.Y);
+                                float ratioX = distX / distY;
+                                //float maxX = mainTex.WrapX == TextureWrapMode.Clamp ? 1f : (1f / distX) * mainTex.Size.X;
+                                float maxX = mainTex.WrapX == TextureWrapMode.Clamp ? 1f : ratioX;
+                                //float maxY = mainTex.WrapY == TextureWrapMode.Clamp ? 1f : (1f / distY) * mainTex.Size.Y;
+                                if (!borderTexFlip) texCoord = new Vector2[] { new Vector2(maxX, 0f), Vector2.Zero, new Vector2(0f, 1f), new Vector2(maxX, 1f) };
+                                else texCoord = new Vector2[] { new Vector2(maxX, 1f), new Vector2(0f, 1f), Vector2.Zero, new Vector2(maxX, 0f) };
 
                                 int prev = i == 0 ? t - 1 : i - 1;
                                 if (borderInfo[prev].innerBCenter == borderInfo[prev].dummyInnerA)
@@ -534,6 +543,8 @@ namespace YMR.ComplexBody.Core
                                         texCoord[j].X = 1f - texCoord[j].X;
                                     }
                                 }
+
+
 
                                 vertexInfo.borderMaterial.Add(GetPoly(device, bi.PolygonForCornersInside, borderColor, texCoord));
 
@@ -748,6 +759,8 @@ namespace YMR.ComplexBody.Core
                         Vector2[] tempInnerLinePointsA = new Vector2[3];
                         Vector2[] tempInnerLinePointsB = new Vector2[3];
                         float prevAngle, nextAngle;
+                        int prev = i == 0 ? t - 1 : i - 1;
+                        int next = i == t - 1 ? 0 : i + 1;
 
                         if (i < t - 1)
                         {
@@ -839,15 +852,15 @@ namespace YMR.ComplexBody.Core
                                 borderInfo[i].outerACenter = new Vector2(borderInfo[i].innerB.X + borderWidth * MathF.Cos(angle - MathF.RadAngle90), borderInfo[i].innerB.Y + borderWidth * MathF.Sin(angle - MathF.RadAngle90));
                                 borderInfo[i].outerBCenter = borderInfo[i].outerB;
                                 // Previous border segment vertices correction to avoid polygon clipping
-                                int iPrev = i > 0 ? i - 1 : t - 1;
-                                borderInfo[iPrev].outerBCenter = borderInfo[i].outerB;
-                                borderInfo[iPrev].innerBCenter = borderInfo[iPrev].dummyInnerA;
-                                borderInfo[iPrev].cornerACenter = borderInfo[iPrev].outerA;
+                                
+                                borderInfo[prev].outerBCenter = borderInfo[i].outerB;
+                                borderInfo[prev].innerBCenter = borderInfo[prev].dummyInnerA;
+                                borderInfo[prev].cornerACenter = borderInfo[prev].outerA;
                                 if (i > 0)
                                 {
-                                    angle = borderInfo[iPrev].cornerAngleB - MathF.RadAngle180;
-                                    borderInfo[iPrev].cornerAngleB = borderInfo[iPrev].cornerAngleA - MathF.RadAngle180;
-                                    borderInfo[iPrev].cornerAngleA = angle;
+                                    angle = borderInfo[prev].cornerAngleB - MathF.RadAngle180;
+                                    borderInfo[prev].cornerAngleB = borderInfo[prev].cornerAngleA - MathF.RadAngle180;
+                                    borderInfo[prev].cornerAngleA = angle;
                                 }
                                 else
                                 {
@@ -861,7 +874,6 @@ namespace YMR.ComplexBody.Core
                                 borderInfo[i].innerACenter = borderInfo[i].innerA;
                                 borderInfo[i].innerBCenter = borderInfo[i].innerB;
                             }
-                            int iNext = i < t - 1 ? i + 1 : 0;
                             if (changeCornerAngles0 && i == t - 1)
                             {
                                 borderInfo[i].outerBCenter = borderInfo[0].outerB;
@@ -873,7 +885,7 @@ namespace YMR.ComplexBody.Core
                             else
                             {
                                 borderInfo[i].cornerAngleA = borderInfo[i].angle;
-                                borderInfo[i].cornerAngleB = borderInfo[iNext].angle;
+                                borderInfo[i].cornerAngleB = borderInfo[next].angle;
                                 borderInfo[i].cornerACenter = borderInfo[i].innerB;
                             }
                         }
@@ -888,8 +900,7 @@ namespace YMR.ComplexBody.Core
                         angle = MathF.Angle(borderInfo[i].dummyInnerA.X, borderInfo[i].dummyInnerA.Y, borderInfo[i].outerA.X, borderInfo[i].outerA.Y) + MathF.RadAngle90;
                         borderInfo[i].centerA = new Vector2(borderInfo[i].outerA.X + borderWidth * .5f * MathF.Cos(angle), borderInfo[i].outerA.Y + borderWidth * .5f * MathF.Sin(angle));
                         borderInfo[i].centerB = new Vector2(borderInfo[i].outerB.X + borderWidth * .5f * MathF.Cos(angle), borderInfo[i].outerB.Y + borderWidth * .5f * MathF.Sin(angle));
-
-                        int prev = i == 0 ? t - 1 : i - 1;
+                        
                         borderInfo[prev].cornerBCenter = borderInfo[i].cornerACenter;
                         borderInfo[prev].cornerBA = borderInfo[i].cornerAA;
                         borderInfo[prev].cornerBB = borderInfo[i].cornerAB;
