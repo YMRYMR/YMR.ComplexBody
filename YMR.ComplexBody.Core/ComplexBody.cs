@@ -388,12 +388,16 @@ namespace YMR.ComplexBody.Core
             segments = 1 + (int)((((float)segments - 1f) / 360f) * MathF.RadToDeg(MathF.Abs(angleTo - angleFrom)));
             float angleStep = (angleTo - angleFrom) / segments;
             int t = segments + 2;
+
+            //minTexCoord.X *= 1f + (float)MathF.RoundToInt((angleTo - angleFrom) / MathF.RadAngle90, MidpointRounding.AwayFromZero);
+            //maxTexCoord.X *= 1f + (float)MathF.RoundToInt((angleTo - angleFrom) / MathF.RadAngle90, MidpointRounding.AwayFromZero);
+
             VertexC1P3T2[] vertices = new VertexC1P3T2[t];
             vertices[0].Pos = tempPos;
             vertices[0].Color = color;
             vertices[0].TexCoord = minTexCoord;
             float pointAngle = angleFrom;
-            float ratioX = maxTexCoord.X / (float)t;
+            float ratioX = maxTexCoord.X / (float)(t - 2);
             //float ratioY = maxTexCoord.Y / (float)t;
             for (int i = 1; i < t; i++)
             {
